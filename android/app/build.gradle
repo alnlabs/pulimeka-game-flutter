@@ -1,0 +1,110 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+    id "com.google.gms.google-services"
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader("UTF-8") { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterVersionCode = localProperties.getProperty("flutter.versionCode")
+if (flutterVersionCode == null) {
+    flutterVersionCode = "5"
+}
+
+def flutterVersionName = localProperties.getProperty("flutter.versionName")
+if (flutterVersionName == null) {
+    flutterVersionName = "2.0.2"
+}
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withReader("UTF-8") { reader ->
+        keystoreProperties.load(reader)
+    }
+}
+
+android {
+    // Same as published Play Store app (puli-meka-game-android).
+    namespace = "com.alnlabs.pulimekagame"
+    // audioplayers_android and other plugins need SDK 35+ (native app uses 36).
+    compileSdk = 36
+    // r28+ required for Google Play 16 KB page size (Nov 2025+).
+    ndkVersion = "29.0.13599879"
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17.toString()
+    }
+
+    defaultConfig {
+        applicationId = "com.alnlabs.pulimekagame"
+        minSdk = 21
+        targetSdk = 36
+        versionCode = flutterVersionCode.toInteger()
+        versionName = flutterVersionName
+    }
+
+    def releaseKeystoreFile = null
+    if (keystorePropertiesFile.exists()) {
+        def storeFilePath = keystoreProperties.getProperty("storeFile")
+        if (storeFilePath != null) {
+            def candidate = rootProject.file(storeFilePath)
+            if (candidate.exists()) {
+                releaseKeystoreFile = candidate
+            }
+        }
+    }
+
+    signingConfigs {
+        if (releaseKeystoreFile != null) {
+            release {
+                storeFile = releaseKeystoreFile
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (releaseKeystoreFile == null) {
+                throw new GradleException(
+                    "Release keystore not found. Set storeFile in android/keystore.properties " +
+                    "(e.g. keystore/puli-meka-release.jks under android/). " +
+                    "Play Store uploads must not use the debug key."
+                )
+            }
+            signingConfig = signingConfigs.release
+            // Native crash/ANR stack traces in Play Console (bundled into the AAB).
+            ndk {
+                debugSymbolLevel "FULL"
+            }
+        }
+        debug {
+            // Side-by-side with release install (matches native Android project).
+            applicationIdSuffix = ".debug"
+        }
+    }
+}
+
+// Debug uses com.alnlabs.pulimekagame.debug — skip Firebase google-services merge.
+gradle.projectsEvaluated {
+    tasks.findAll { it.name == "processDebugGoogleServices" }.each { it.enabled = false }
+}
+
+flutter {
+    source = "../.."
+}

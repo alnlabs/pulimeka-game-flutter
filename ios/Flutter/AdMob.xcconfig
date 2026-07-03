@@ -1,0 +1,4 @@
+// iOS AdMob App ID — must match lib/src/config/admob_ios_prod_config.dart applicationId.
+// Until iOS app is registered in AdMob, Release/Profile fall back to Android app id (may not serve on iOS).
+// See docs/ADMOB_IOS_UNITS.md
+GAD_APPLICATION_ID=ca-app-pub-5227558935673781~4570923137

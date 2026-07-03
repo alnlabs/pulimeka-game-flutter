@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "321960176025",
+    "firebase_url": "https://alnlabs-puli-meka-game-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "alnlabs-puli-meka-game",
+    "storage_bucket": "alnlabs-puli-meka-game.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:321960176025:android:fe13cbbbadc31db3334b08",
+        "android_client_info": {
+          "package_name": "com.alnlabs.pulimekagame"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "321960176025-017m0jofsql7ljgn8pefbutq3g5qsnql.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.alnlabs.pulimekagame",
+            "certificate_hash": "84fbdb1f48a86c6fb417ffd7ee48cda9897c73e1"
+          }
+        },
+        {
+          "client_id": "321960176025-pk6tp5u6qid44k038geb4gpdumvpvncq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAiXJt9c102ZLy8S1_ptfJQCcbkVUFwhxs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "321960176025-pk6tp5u6qid44k038geb4gpdumvpvncq.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "321960176025-ofsdjs9ek8gvgqfd4qrg6uodo1gjg9ft.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.alnlabs.pulimeka"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

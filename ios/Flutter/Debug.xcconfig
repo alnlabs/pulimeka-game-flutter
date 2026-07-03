@@ -1,0 +1,9 @@
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
+#include "Generated.xcconfig"
+
+// Prebuilt engine so Xcode finds `import Flutter` before the first Pods build (after Clean).
+FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*] = $(inherited) "$(FLUTTER_ROOT)/bin/cache/artifacts/engine/ios/Flutter.xcframework/ios-arm64" "$(PODS_CONFIGURATION_BUILD_DIR)/Flutter"
+FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*] = $(inherited) "$(FLUTTER_ROOT)/bin/cache/artifacts/engine/ios/Flutter.xcframework/ios-arm64_x86_64-simulator" "$(PODS_CONFIGURATION_BUILD_DIR)/Flutter"
+
+// AdMob test app ID (debug / simulator).
+GAD_APPLICATION_ID=ca-app-pub-3940256099942544~1458002511

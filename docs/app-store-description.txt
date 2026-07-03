@@ -1,0 +1,33 @@
+SUBTITLE (30 characters max — optional in some locales)
+Tigers vs Goats strategy
+
+PROMOTIONAL TEXT (170 characters max — can change without new version)
+Play the classic Puli Meka board game offline, vs AI, or online. Learn with the visual tutorial, use hints when you’re stuck, and challenge friends.
+
+DESCRIPTION (paste into Description field)
+Puli Meka is the classic Indian strategy game of Tigers and Goats—easy to learn, deep to master.
+
+One side controls the tigers; the other places and moves the goats. Tigers capture by jumping over goats; goats win by trapping the tigers. Every match plays out on a traditional board with clear, beautiful visuals.
+
+PLAY YOUR WAY
+• Offline — two players on one device
+• vs AI — choose Tiger or Goat and pick Easy, Medium, or Hard
+• Online — create or join a room with a code and play with a friend in real time
+
+LEARN & IMPROVE
+• Step-by-step visual tutorial on the real board
+• Rules and hints built into the app
+• Optional move hints when you need help (including after tutorial)
+
+TRACK YOUR PROGRESS
+• Game history and stats
+• Profile with hint packs and tutorial progress
+• Sound effects you can turn down or off in Settings
+
+Whether you grew up with Puli Meka, Bagh-Chal, or Aadu Puli Aatam—or you’re discovering it for the first time—this is the board on your phone.
+
+KEYWORDS (100 characters max, comma-separated, no spaces after commas)
+pulimeka,tigers,goats,board,strategy,india,offline,multiplayer,AI,baghchal,puzzle,family,game
+
+WHAT'S NEW (first release example)
+Welcome to Puli Meka on iOS! Play offline, challenge the AI, join friends online, and learn with the visual tutorial.

@@ -1,0 +1,20 @@
+VERSION (App Store Connect): 2.0.4
+BUILD: 15
+
+WHAT'S NEW (paste in App Store / TestFlight):
+
+• Better display on iPad and larger screens
+• Improved AI difficulty levels
+• More reliable ad loading
+• Bug fixes and performance improvements
+
+TESTFLIGHT — WHAT TO TEST (optional):
+
+• Game screens on iPad (messages and buttons should not be cut off)
+• AI games on Easy / Medium / Hard
+• Banner ads on home and game screens
+• Hint unlock via video ad
+
+APP REVIEW NOTE (if resubmitting after iPad rejection):
+
+We fixed layout issues on iPad (iPhone compatibility mode): flexible HUD/message bars, safe-area snackbars, and bottom padding for ad banners. Please verify on iPad Air.

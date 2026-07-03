@@ -1,0 +1,12 @@
+RELEASE NAME (paste in Play Console "Release name" field):
+
+2.0.3
+
+
+RELEASE NOTES (paste in "Release notes" field):
+
+What's new in 2.0.3:
+• Improved stability and performance
+• Online multiplayer fixes
+• Smoother gameplay and UI updates
+• Hint unlock via optional video ads
