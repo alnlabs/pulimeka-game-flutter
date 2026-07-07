@@ -28,7 +28,7 @@ class BoardScreenshotCatalog {
           id: '04-tiger-capture',
           title: 'Tiger capture',
           subtitle: 'Jump over a goat to capture',
-          ui: TutorialSnapshots.tigerCapture ?? TutorialSnapshots.tigerCaptureDemo,
+          ui: TutorialSnapshots.tigerCapture,
         ),
         BoardScreenshotPhase(
           id: '05-goat-placement',

@@ -53,7 +53,7 @@ class _CaptureScreenshotsAppState extends State<_CaptureScreenshotsApp> {
           path:
               '$_tutorialDir/${(s.index + 1).toString().padLeft(2, '0')}-${_slug(s.title)}.png',
           builder: () => _TutorialPageCapture(step: s),
-          size: Size(390, s.layout == TutorialBoardLayout.dualWin ? 560 : 420),
+          size: Size(390, s.board != null ? 520 : 420),
         ),
       ),
   ];
@@ -162,11 +162,18 @@ class _TutorialPageCapture extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              step.description,
+              step.body,
               style: AppTheme.text(size: 14, color: AppTheme.textSecondary),
             ),
-            const SizedBox(height: 16),
-            Expanded(child: TutorialBoardPanel(step: step)),
+            if (step.board != null) ...[
+              const SizedBox(height: 16),
+              Expanded(
+                child: TutorialBoardPanel(
+                  board: step.board!,
+                  caption: step.boardCaption,
+                ),
+              ),
+            ],
           ],
         ),
       ),

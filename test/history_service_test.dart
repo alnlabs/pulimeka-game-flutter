@@ -22,7 +22,11 @@ void main() {
         playedAt: DateTime.utc(2026, 5, 23),
       );
 
-      await historyService.saveResult(result);
+      await historyService.saveResult(
+        result,
+        playerName: 'Tiger',
+        humanWon: true,
+      );
       final loaded = await historyService.loadHistory();
 
       expect(loaded, hasLength(1));
@@ -44,7 +48,11 @@ void main() {
         playedAt: DateTime.utc(2026, 5, 23),
       );
 
-      await historyService.saveResult(result);
+      await historyService.saveResult(
+        result,
+        playerName: 'Goat',
+        humanWon: true,
+      );
       await historyService.clearHistory();
       final loaded = await historyService.loadHistory();
 

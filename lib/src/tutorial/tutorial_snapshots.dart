@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../controllers/game_controller.dart';
+import '../models/game_constants.dart';
 import '../models/game_state.dart';
 import '../theme/app_theme.dart';
 
@@ -88,6 +89,118 @@ class TutorialSnapshots {
         pieces: _openingPieces,
         currentTurn: PieceType.tiger,
       );
+
+  /// Tiger selected at game start — valid first moves highlighted.
+  static UiGameState get tigerStarts {
+    final engine = GameState.initial();
+    const tiger = 'r2-c2';
+    return _uiFromEngine(
+      engine,
+      selectedNode: tiger,
+      validTargets: engine.getTigerMoves(tiger).map((m) => m.target).toSet(),
+    );
+  }
+
+  /// Tiger piece selected with slide targets (after opening).
+  static UiGameState get tigerMove => tigerStarts;
+
+  /// Tiger jump capture — goat between tiger and landing node.
+  static UiGameState get tigerCapture => tigerCaptureDemo;
+
+  static UiGameState get tigerCaptureDemo {
+    final engine = GameState.initial();
+    engine.pieceState['r2-c3'] = null;
+    engine.pieceState['r2-c4'] = null;
+    engine.pieceState['r2-c5'] = PieceType.goat;
+    engine.pieceState['r2-c6'] = PieceType.tiger;
+    const tiger = 'r2-c2';
+    final jumps = engine.getTigerMoves(tiger).where((m) => m.isJump).toList();
+    if (jumps.isNotEmpty) {
+      final jump = jumps.first;
+      return _uiFromEngine(
+        engine,
+        selectedNode: tiger,
+        validTargets: {jump.target},
+        hintHighlightNodes: {tiger, jump.jumped!, jump.target},
+      );
+    }
+    return tigerStarts;
+  }
+
+  /// Goat placement turn — empty nodes highlighted.
+  static UiGameState get goatPlacement {
+    final engine = GameState.initial();
+    final moves = engine.getTigerMoves('r2-c2');
+    if (moves.isNotEmpty) {
+      engine.applyMove('r2-c2', moves.first.target);
+    }
+    return _uiFromEngine(
+      engine,
+      validTargets: engine.placementTargets.toSet(),
+      showPlacementDots: true,
+    );
+  }
+
+  /// Movement phase — goat selected with slide targets.
+  static UiGameState get goatMove {
+    final engine = GameState.initial();
+    engine.gamePhase = 'movement';
+    engine.goatsToPlace = 0;
+    const goat = 'r2-c3';
+    return _uiFromEngine(
+      engine,
+      selectedNode: goat,
+      validTargets: engine.getGoatMoves(goat).map((m) => m.target).toSet(),
+    );
+  }
+
+  /// Goats win — tigers surrounded.
+  static UiGameState get goatsWin {
+    final engine = GameState.initial();
+    engine.gamePhase = 'movement';
+    engine.goatsToPlace = 0;
+    engine.winner = 'goats';
+    return _uiFromEngine(engine);
+  }
+
+  /// Tigers win — 12 goats captured.
+  static UiGameState get tigersWin {
+    final engine = GameState.initial();
+    engine.gamePhase = 'movement';
+    engine.goatsToPlace = 0;
+    engine.capturedGoats = GameConstants.goatsToCaptureForTigerWin;
+    engine.winner = 'tigers';
+    for (final node in ['r1-c4', 'r3-c4', 'r2-c3', 'r2-c5']) {
+      engine.pieceState[node] = null;
+    }
+    return _uiFromEngine(engine);
+  }
+
+  static UiGameState _uiFromEngine(
+    GameState engine, {
+    String? selectedNode,
+    Set<String>? validTargets,
+    bool showPlacementDots = false,
+    Set<String> hintHighlightNodes = const {},
+  }) {
+    final pieces = <BoardPiece>[];
+    for (final entry in engine.pieceState.entries) {
+      final piece = entry.value;
+      if (piece != null) {
+        pieces.add(BoardPiece(type: piece, node: entry.key));
+      }
+    }
+    return UiGameState(
+      pieces: pieces,
+      currentTurn: engine.currentTurn,
+      validTargets: validTargets ?? const {},
+      selectedNode: selectedNode,
+      winner: engine.winner,
+      capturedGoats: engine.capturedGoats,
+      showPlacementDots: showPlacementDots,
+      hintHighlightNodes: hintHighlightNodes,
+    );
+  }
 }
 
 class TutorialStepData {

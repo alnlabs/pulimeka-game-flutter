@@ -13,11 +13,9 @@ class AiService {
     AiDifficulty difficulty = AiDifficulty.medium,
     Random? random,
   })  : _difficulty = difficulty,
-        _random = random ?? Random(),
-        _minimax = AiMinimax(random: random);
+        _minimax = AiMinimax(random: random ?? Random());
 
   final AiDifficulty _difficulty;
-  final Random _random;
   final AiMinimax _minimax;
 
   AiDifficulty get difficulty => _difficulty;
