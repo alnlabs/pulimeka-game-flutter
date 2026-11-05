@@ -3,47 +3,48 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'app_dialog.dart';
 
+/// Chooses vs AI, Offline, or Online.
 class StartGameDialog extends StatelessWidget {
   const StartGameDialog({
     required this.onDismiss,
     required this.onPlayOffline,
     required this.onPlayOnline,
-    required this.onPlayAI,
+    this.onPlayAi,
     super.key,
   });
 
   final VoidCallback onDismiss;
   final VoidCallback onPlayOffline;
   final VoidCallback onPlayOnline;
-  final VoidCallback onPlayAI;
+  final VoidCallback? onPlayAi;
 
   @override
   Widget build(BuildContext context) {
     return AppDialog(
-      title: 'Start Game',
+      title: 'Play',
       icon: Icons.sports_esports_outlined,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           _ModeCard(
-            icon: Icons.smartphone_outlined,
-            title: 'Play Offline',
+            icon: Icons.smart_toy_outlined,
+            title: 'vs AI',
+            subtitle: 'Pick a side and difficulty',
+            onTap: onPlayAi ?? onPlayOffline,
+          ),
+          const SizedBox(height: 10),
+          _ModeCard(
+            icon: Icons.people_outline,
+            title: 'Offline',
             subtitle: 'Two players on this device',
             onTap: onPlayOffline,
           ),
           const SizedBox(height: 10),
           _ModeCard(
             icon: Icons.public_outlined,
-            title: 'Play Online',
-            subtitle: 'Room with a friend',
+            title: 'Online',
+            subtitle: 'Play with a friend',
             onTap: onPlayOnline,
-          ),
-          const SizedBox(height: 10),
-          _ModeCard(
-            icon: Icons.smart_toy_outlined,
-            title: 'Play with AI',
-            subtitle: 'Single player vs computer',
-            onTap: onPlayAI,
           ),
         ],
       ),

@@ -32,7 +32,8 @@ class AdRequestHelper {
   }
 
   static Future<RequestConfiguration> platformRequestConfiguration() async {
-    // Play Families tags on Android only — iOS fill drops sharply with child-directed.
+    // Play Families: Android requests are child-directed so only G-rated
+    // inventory can serve. iOS omits TFCD because fill drops sharply.
     final childDirected = defaultTargetPlatform == TargetPlatform.android
         ? TagForChildDirectedTreatment.yes
         : TagForChildDirectedTreatment.unspecified;
@@ -48,9 +49,15 @@ class AdRequestHelper {
   }
 
   static AdRequest build() {
-    final npa = defaultTargetPlatform == TargetPlatform.iOS &&
-        _trackingResolved &&
-        !_trackingAuthorized;
-    return AdRequest(nonPersonalizedAds: npa);
+    // Families Policy: child-directed Android traffic must not use
+    // personalized ads. iOS still keys NPA off App Tracking Transparency.
+    final npa = defaultTargetPlatform == TargetPlatform.android ||
+        (defaultTargetPlatform == TargetPlatform.iOS &&
+            _trackingResolved &&
+            !_trackingAuthorized);
+    return AdRequest(
+      nonPersonalizedAds: npa,
+      extras: {'max_ad_content_rating': MaxAdContentRating.g},
+    );
   }
 }

@@ -1,0 +1,25 @@
+RELEASE NAME (paste in Play Console "Release name" field):
+
+2.0.6
+
+
+RELEASE NOTES (paste in "Release notes" field):
+
+What's new in 2.0.6:
+• Career mode — 20 stages from first steps to classic Puli Meka, with stars and saved progress
+• Stronger AI, plus a gentler tutorial difficulty
+• Redesigned home screen, board, and in-game HUD
+• More reliable online play, including resume of an active match
+• Clearer stats, how to play, and tutorial
+• Family-safe ads (G-rated, non-personalized)
+
+
+POLICY REPLY (paste in Policy status / appeal if asked):
+
+We addressed the Families ad-content issue:
+
+1. AdMob blocking controls: maximum ad content rating set to G, and all sensitive categories blocked.
+2. The app now requests only G-rated, child-directed, non-personalized ads on Android (max_ad_content_rating=G).
+3. Submitted version 2.0.6 (versionCode 18) for re-review.
+
+The app is a traditional board game. Ads are banners plus optional hint unlock (interstitial/rewarded).

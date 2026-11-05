@@ -1,3 +1,7 @@
+import 'board_spec.dart';
+
+export 'board_spec.dart' show NodeCoord;
+
 class BoardLayout {
   static const int rows = 5;
   static const int cols = 9;
@@ -8,6 +12,18 @@ class BoardLayout {
   static final List<String> allNodes = _generateAllNodes();
   static final Map<String, NodeCoord> coords = _generateCoords();
   static final Map<String, List<String>> connections = _generateConnections();
+
+  /// Classic board as a [BoardSpec] for campaign / parameterized play.
+  static BoardSpec asSpec() {
+    return BoardSpec(
+      id: 'classic',
+      allNodes: List.unmodifiable(allNodes),
+      coords: Map.unmodifiable(coords),
+      connections: Map.unmodifiable(connections),
+      maxRow: rows - 1,
+      maxCol: cols - 1,
+    );
+  }
 
   static bool exists(int row, int col) {
     if (row < 0 || row >= rows || col < 0 || col >= cols) {
@@ -131,11 +147,4 @@ class BoardLayout {
 
     return adj.map((key, value) => MapEntry(key, value.toList()..sort()));
   }
-}
-
-class NodeCoord {
-  final int row;
-  final int col;
-
-  const NodeCoord({required this.row, required this.col});
 }

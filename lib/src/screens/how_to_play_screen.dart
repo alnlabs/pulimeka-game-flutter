@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../content/hint_help_content.dart';
 import '../theme/app_theme.dart';
 import '../utils/external_links.dart';
+import '../widgets/ad_banner.dart';
 import '../widgets/help_section.dart';
 import 'tutorial_screen.dart';
 
@@ -21,6 +22,7 @@ class HowToPlayScreen extends StatelessWidget {
         backgroundColor: AppTheme.primary,
         foregroundColor: AppTheme.textOnDark,
       ),
+      bottomNavigationBar: const ScreenAdBar(),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(AppTheme.spacingMedium),

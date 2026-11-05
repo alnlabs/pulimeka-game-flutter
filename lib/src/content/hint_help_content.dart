@@ -16,9 +16,9 @@ class HintHelpContent {
         'The hint button is free and unlimited.',
     'After tutorial: you receive ${HintPolicy.freeHintsAfterTutorial} free hints. '
         'Automatic board tips are turned off — use the hint button when you need help.',
-    'When free hints are used up: choose Watch video (rewarded ad) or '
-        'Short ad (full-screen ad with a ${HintPolicy.timedAdSkipSeconds}-second wait, then Skip) '
-        'to unlock one move suggestion.',
+    'When free hints are used up: tap the hint button to unlock '
+        '${HintPolicy.hintsPerAdBatch} more hints. On some platforms this may '
+        'use an optional short ad.',
     'A hint highlights suggested nodes in gold and shows a short message at the top of the board. '
         'You still make the move yourself.',
     'In Play with AI, hints are only available on your turn.',

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../assets/game_assets.dart';
 import '../content/hint_help_content.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ad_banner.dart';
 import '../widgets/help_section.dart';
 import 'how_to_play_screen.dart';
 
@@ -21,6 +22,7 @@ class AboutScreen extends StatelessWidget {
         backgroundColor: AppTheme.primary,
         foregroundColor: AppTheme.textOnDark,
       ),
+      bottomNavigationBar: const ScreenAdBar(),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(AppTheme.spacingMedium),
@@ -47,7 +49,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Designed and developed by Nageshwar Reddy Pandem',
+              'Designed and developed by ALN Labs',
               textAlign: TextAlign.center,
               style: AppTheme.text(size: 12, color: AppTheme.textTertiary),
             ),
@@ -71,7 +73,7 @@ class AboutScreen extends StatelessWidget {
                 ...HintHelpContent.bullets.map(HelpBullet.new),
                 const HelpParagraph(
                   'Banner ads may appear at the bottom of some screens. '
-                  'Hint unlock ads are optional and only shown when you request an extra hint.',
+                  'Android does not show rewarded or full-screen video ads.',
                 ),
               ],
             ),

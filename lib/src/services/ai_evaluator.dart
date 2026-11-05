@@ -1,14 +1,12 @@
 import '../models/ai_move.dart';
-import '../models/board_layout.dart';
 import '../models/game_state.dart';
 
 /// Board evaluation and move generation for minimax (Android `AIEvaluator`).
 class AiEvaluator {
-  static const _centerNodes = ['r2-c3', 'r2-c4', 'r2-c5', 'r1-c4', 'r3-c4'];
-
   static int evaluate(GameState state, PieceType aiRole) {
     if (aiRole == PieceType.tiger) {
-      if (state.capturedGoats >= GameState.goatsToCaptureForTigerWin) {
+      if (!state.winByTrapOnly &&
+          state.capturedGoats >= state.goatsToCaptureForTigerWin) {
         return 10000;
       }
       if (state.areTigersTrapped()) {
@@ -18,17 +16,19 @@ class AiEvaluator {
       if (state.areTigersTrapped()) {
         return 10000;
       }
-      if (state.capturedGoats >= GameState.goatsToCaptureForTigerWin) {
+      if (!state.winByTrapOnly &&
+          state.capturedGoats >= state.goatsToCaptureForTigerWin) {
         return -10000;
       }
     }
 
     var score = 0;
+    final nodes = state.board.allNodes;
     if (aiRole == PieceType.tiger) {
       score += state.capturedGoats * 500;
       var totalTigerMoves = 0;
       var captureMoves = 0;
-      for (final node in BoardLayout.allNodes) {
+      for (final node in nodes) {
         if (state.pieceAt(node) != PieceType.tiger) continue;
         final moves = state.getTigerMoves(node);
         totalTigerMoves += moves.length;
@@ -41,25 +41,24 @@ class AiEvaluator {
       } else if (totalTigerMoves <= 2) {
         score -= 200;
       }
-      for (final node in BoardLayout.allNodes) {
-        if (state.pieceAt(node) == PieceType.tiger &&
-            _centerNodes.contains(node)) {
+      for (final node in nodes) {
+        if (state.pieceAt(node) == PieceType.tiger && _isCentral(state, node)) {
           score += 20;
         }
       }
     } else {
       var totalTigerMoves = 0;
-      for (final node in BoardLayout.allNodes) {
+      for (final node in nodes) {
         if (state.pieceAt(node) == PieceType.tiger) {
           totalTigerMoves += state.getTigerMoves(node).length;
         }
       }
-      score += (10 - totalTigerMoves) * 100;
+      score -= totalTigerMoves * 100;
       if (totalTigerMoves == 0) score += 5000;
       score -= state.capturedGoats * 300;
 
       var blockingGoats = 0;
-      for (final node in BoardLayout.allNodes) {
+      for (final node in nodes) {
         if (state.pieceAt(node) != PieceType.tiger) continue;
         for (final move in state.getTigerMoves(node)) {
           if (move.jumped != null &&
@@ -71,20 +70,27 @@ class AiEvaluator {
       score += blockingGoats * 50;
 
       var totalGoatMoves = 0;
-      for (final node in BoardLayout.allNodes) {
+      for (final node in nodes) {
         if (state.pieceAt(node) == PieceType.goat) {
           totalGoatMoves += state.getGoatMoves(node).length;
         }
       }
       score += totalGoatMoves * 5;
-      for (final node in BoardLayout.allNodes) {
-        if (state.pieceAt(node) == PieceType.goat &&
-            _centerNodes.contains(node)) {
+      for (final node in nodes) {
+        if (state.pieceAt(node) == PieceType.goat && _isCentral(state, node)) {
           score += 10;
         }
       }
     }
     return score;
+  }
+
+  static bool _isCentral(GameState state, String node) {
+    final coord = state.board.nodeCoord(node);
+    if (coord == null) return false;
+    final midRow = state.board.maxRow / 2;
+    final midCol = state.board.maxCol / 2;
+    return (coord.row - midRow).abs() <= 1 && (coord.col - midCol).abs() <= 1;
   }
 
   /// Mirrors Android `getAllPossibleMoves` for the active player [role].
@@ -95,6 +101,7 @@ class AiEvaluator {
     final moves = <AiMove>[];
     final gamePhase = state.gamePhase;
     final goatsToPlace = state.goatsToPlace;
+    final nodes = state.board.allNodes;
 
     if (gamePhase == 'placement' &&
         role == PieceType.goat &&
@@ -106,7 +113,7 @@ class AiEvaluator {
     }
 
     if (gamePhase == 'placement' && role == PieceType.tiger) {
-      for (final node in BoardLayout.allNodes) {
+      for (final node in nodes) {
         if (state.pieceAt(node) != PieceType.tiger) continue;
         for (final m in state.getTigerMoves(node)) {
           moves.add(AiMove(from: node, target: m.target, jumped: m.jumped));
@@ -117,14 +124,14 @@ class AiEvaluator {
 
     if (gamePhase == 'movement') {
       if (role == PieceType.tiger) {
-        for (final node in BoardLayout.allNodes) {
+        for (final node in nodes) {
           if (state.pieceAt(node) != PieceType.tiger) continue;
           for (final m in state.getTigerMoves(node)) {
             moves.add(AiMove(from: node, target: m.target, jumped: m.jumped));
           }
         }
       } else {
-        for (final node in BoardLayout.allNodes) {
+        for (final node in nodes) {
           if (state.pieceAt(node) != PieceType.goat) continue;
           for (final m in state.getGoatMoves(node)) {
             moves.add(AiMove(from: node, target: m.target));

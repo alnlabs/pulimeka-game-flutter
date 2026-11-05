@@ -2,7 +2,6 @@ import 'dart:math';
 
 import '../models/ai_difficulty.dart';
 import '../models/ai_move.dart';
-import '../models/board_layout.dart';
 import '../models/game_state.dart';
 import 'ai_minimax.dart';
 
@@ -42,7 +41,7 @@ class AiService {
     final move = chooseGoatMove(state);
     if (move?.isPlacement == true) return move!.placement!;
     final targets = state.placementTargets;
-    if (targets.isEmpty) return BoardLayout.allNodes.first;
+    if (targets.isEmpty) return state.board.allNodes.first;
     return targets.first;
   }
 }

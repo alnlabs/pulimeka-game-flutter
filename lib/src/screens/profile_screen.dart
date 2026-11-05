@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/hint_policy.dart';
 import '../models/player_profile.dart';
+import '../services/campaign_progress_service.dart';
 import '../services/hint_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ad_banner.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -42,11 +44,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: const Text('Hints & activity'),
         centerTitle: true,
         backgroundColor: AppTheme.primary,
         foregroundColor: AppTheme.textOnDark,
       ),
+      bottomNavigationBar: const ScreenAdBar(),
       body: FutureBuilder<PlayerProfile>(
         future: _profileFuture,
         builder: (context, snapshot) {
@@ -59,6 +62,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: ListView(
               padding: const EdgeInsets.all(AppTheme.spacingMedium),
               children: [
+                FutureBuilder<(int, int)>(
+                  future: () async {
+                    final stars =
+                        await CampaignProgressService.instance.totalStars();
+                    final unlocked = await CampaignProgressService.instance
+                        .highestUnlocked();
+                    return (stars, unlocked);
+                  }(),
+                  builder: (context, snap) {
+                    final stars = snap.data?.$1 ?? 0;
+                    final unlocked = snap.data?.$2 ?? 1;
+                    return _Card(
+                      title: 'Career',
+                      child: _StatRow(
+                        label: 'Stars · continue at level $unlocked',
+                        value:
+                            '$stars/${CampaignProgressService.maxStars}',
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
                 _Card(
                   title: 'Started playing',
                   child: Text(
@@ -130,8 +155,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ] else ...[
                         const Divider(height: 20),
                         Text(
-                          'After free hints run out, watch a short ad to unlock '
-                          '${HintPolicy.hintsPerAdBatch} hints. Each use counts down until you need another ad.',
+                          'After free hints run out, tap the hint button to unlock '
+                          '${HintPolicy.hintsPerAdBatch} more hints.',
                           style: AppTheme.text(
                             size: 13,
                             color: AppTheme.textSecondary,

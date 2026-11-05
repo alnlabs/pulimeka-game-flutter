@@ -21,7 +21,7 @@ class GameTopBar extends StatelessWidget {
     this.editNamesLabel = 'Change names',
     this.showHintBar = true,
     this.showHintActions = true,
-    this.showRestartInMenu = true,
+    this.showRestartButton = true,
     super.key,
   });
 
@@ -40,7 +40,7 @@ class GameTopBar extends StatelessWidget {
   final String editNamesLabel;
   final bool showHintBar;
   final bool showHintActions;
-  final bool showRestartInMenu;
+  final bool showRestartButton;
 
   @override
   Widget build(BuildContext context) {
@@ -48,10 +48,10 @@ class GameTopBar extends StatelessWidget {
       decoration: AppTheme.topBarDecoration(),
       child: Padding(
         padding: EdgeInsets.fromLTRB(
+          2,
+          2 + MediaQuery.paddingOf(context).top,
           4,
-          4 + MediaQuery.paddingOf(context).top,
-          8,
-          8,
+          4,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -70,7 +70,7 @@ class GameTopBar extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTheme.text(
-                            size: 17,
+                            size: 15,
                             weight: FontWeight.bold,
                             color: AppTheme.textOnDark,
                           ),
@@ -83,9 +83,21 @@ class GameTopBar extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (showHintActions)
+                  _IconBtn(
+                    icon: Icons.lightbulb_outline,
+                    onPressed: onHint,
+                    tooltip: 'Hint',
+                  ),
+                if (showRestartButton)
+                  _IconBtn(
+                    icon: Icons.restart_alt,
+                    onPressed: onRestart,
+                    tooltip: 'Restart',
+                  ),
                 _OverflowMenuButton(
                   showHintActions: showHintActions,
-                  showRestartInMenu: showRestartInMenu,
+                  showRestartInMenu: false,
                   editNamesLabel: editNamesLabel,
                   hasEditNames: onEditNames != null,
                   hasProfile: onProfile != null,
@@ -261,16 +273,22 @@ class _OverflowMenuButtonState extends State<_OverflowMenuButton> {
 }
 
 class _IconBtn extends StatelessWidget {
-  const _IconBtn({required this.icon, required this.onPressed});
+  const _IconBtn({
+    required this.icon,
+    required this.onPressed,
+    this.tooltip,
+  });
 
   final IconData icon;
   final VoidCallback onPressed;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
       icon: Icon(icon, color: AppTheme.textOnDark, size: 22),
       onPressed: onPressed,
+      tooltip: tooltip,
       visualDensity: VisualDensity.compact,
       constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
     );

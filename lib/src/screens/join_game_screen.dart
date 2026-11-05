@@ -6,6 +6,8 @@ import '../models/online_play_args.dart';
 import '../services/online_game_service.dart';
 import '../services/online_session_prefs.dart';
 import '../theme/app_theme.dart';
+import '../utils/layout_insets.dart';
+import '../widgets/ad_banner.dart';
 import 'online_play_screen.dart';
 
 /// Online lobby: Create / Join list / Join by code (Android `JoinGameActivity`).
@@ -165,13 +167,30 @@ class _JoinGameScreenState extends State<JoinGameScreen>
     if (!OnlineGameService.instance.isAvailable) {
       return Scaffold(
         appBar: AppBar(title: const Text('Online Multiplayer')),
+        bottomNavigationBar: const ScreenAdBar(),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text(
-              'Online play needs Firebase. Ensure google-services / GoogleService-Info.plist are configured and you have network access.',
-              textAlign: TextAlign.center,
-              style: AppTheme.text(size: 14, color: AppTheme.textSecondary),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.wifi_off_rounded,
+                  size: 40,
+                  color: AppTheme.textTertiary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Online play is unavailable right now. Check your connection and try again.',
+                  textAlign: TextAlign.center,
+                  style: AppTheme.text(size: 15, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Back'),
+                ),
+              ],
             ),
           ),
         ),
@@ -236,6 +255,7 @@ class _JoinGameScreenState extends State<JoinGameScreen>
                     // Rooms stream handled in tab state
                   },
                   onJoin: _joinRoom,
+                  onCreateInstead: () => _tabs.animateTo(0),
                 ),
                 _CodeTab(
                   controller: _codeController,
@@ -245,6 +265,8 @@ class _JoinGameScreenState extends State<JoinGameScreen>
               ],
             ),
           ),
+          const AdBanner(),
+          SizedBox(height: bottomChromePadding(context)),
         ],
       ),
     );
@@ -304,12 +326,14 @@ class _JoinListTab extends StatefulWidget {
     required this.loading,
     required this.onRefresh,
     required this.onJoin,
+    required this.onCreateInstead,
   });
 
   final List<Map<String, dynamic>> rooms;
   final bool loading;
   final Future<void> Function() onRefresh;
   final Future<void> Function(String roomId) onJoin;
+  final VoidCallback onCreateInstead;
 
   @override
   State<_JoinListTab> createState() => _JoinListTabState();
@@ -337,9 +361,35 @@ class _JoinListTabState extends State<_JoinListTab> {
   Widget build(BuildContext context) {
     if (_rooms.isEmpty) {
       return Center(
-        child: Text(
-          'No open rooms. Create one or join by code.',
-          style: AppTheme.text(size: 14, color: AppTheme.textSecondary),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.meeting_room_outlined,
+                size: 40,
+                color: AppTheme.textTertiary,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No open rooms right now.',
+                textAlign: TextAlign.center,
+                style: AppTheme.text(size: 15, weight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Create a room and share the code, or join with a code from a friend.',
+                textAlign: TextAlign.center,
+                style: AppTheme.text(size: 13, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: widget.onCreateInstead,
+                child: const Text('Create a room'),
+              ),
+            ],
+          ),
         ),
       );
     }

@@ -4,6 +4,8 @@ import '../models/game_result.dart';
 import '../models/leaderboard_entry.dart';
 import '../services/history_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ad_banner.dart';
+import '../widgets/app_dialog.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -33,8 +35,70 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _clearHistory() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AppDialog(
+        title: 'Clear all stats?',
+        icon: Icons.delete_outline,
+        content: const AppDialogBodyText(
+          'This removes the leaderboard and every saved match. This cannot be undone.',
+        ),
+        actions: [
+          AppDialogButton(
+            label: 'Cancel',
+            onPressed: () => Navigator.pop(ctx, false),
+          ),
+          AppDialogButton(
+            label: 'Clear',
+            primary: true,
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
     await _historyService.clearHistory();
     _refresh();
+  }
+
+  String _modeLabel(String mode) {
+    switch (mode) {
+      case 'ai':
+        return 'vs AI';
+      case 'campaign':
+        return 'Career';
+      case 'online':
+        return 'Online';
+      case 'offline':
+        return 'Offline';
+      default:
+        return mode;
+    }
+  }
+
+  IconData _modeIcon(String mode) {
+    switch (mode) {
+      case 'ai':
+        return Icons.smart_toy_outlined;
+      case 'campaign':
+        return Icons.emoji_events_outlined;
+      case 'online':
+        return Icons.public_outlined;
+      default:
+        return Icons.people_outline;
+    }
+  }
+
+  String _formatPlayedAt(DateTime dt) {
+    final local = dt.toLocal();
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final ampm = local.hour >= 12 ? 'PM' : 'AM';
+    return '${months[local.month - 1]} ${local.day}, ${local.year} · $hour:$minute $ampm';
   }
 
   @override
@@ -68,6 +132,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
           ],
         ),
+        bottomNavigationBar: const ScreenAdBar(),
         body: TabBarView(
           children: [
             FutureBuilder<List<LeaderboardEntry>>(
@@ -78,9 +143,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 }
                 final board = snapshot.data ?? [];
                 if (board.isEmpty) {
-                  return const Center(child: Text('No stats yet. Play a game!'));
+                  return const Center(
+                    child: Text('No stats yet. Play a match to appear here.'),
+                  );
                 }
-                return ListView.separated(
+                return RefreshIndicator(
+                  onRefresh: () async => _refresh(),
+                  child: ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: board.length,
                   separatorBuilder: (_, __) => const Divider(),
@@ -98,6 +167,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       ),
                     );
                   },
+                ),
                 );
               },
             ),
@@ -125,11 +195,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       final item = history[index];
                       return ListTile(
                         leading: CircleAvatar(
-                          child: Text(item.mode.substring(0, 1).toUpperCase()),
+                          backgroundColor: AppTheme.primaryLightBackground,
+                          foregroundColor: AppTheme.primaryDark,
+                          child: Icon(_modeIcon(item.mode), size: 20),
                         ),
-                        title: Text('${item.mode} — ${item.winner}'),
+                        title: Text(
+                          '${_modeLabel(item.mode)} · ${item.winner}',
+                        ),
                         subtitle: Text(
-                          'Captured ${item.capturedGoats} goats • ${item.playedAt.toLocal()}',
+                          'Captured ${item.capturedGoats} goats · ${_formatPlayedAt(item.playedAt)}',
                         ),
                       );
                     },

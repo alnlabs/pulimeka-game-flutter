@@ -37,11 +37,18 @@ class AdConfig {
 
   static String get rewardedAdUnitId => StoreAdConfig.rewardedAdUnitId;
 
+  /// Play Families: Android must not show rewarded or interstitial video.
+  /// Those formats are the usual source of ads that do not match a G rating.
+  static bool get allowFullScreenAds =>
+      defaultTargetPlatform != TargetPlatform.android;
+
   /// False in release until `AdmobProdConfig.rewardedAdUnitId` is set.
-  static bool get canUseRewardedAd => StoreAdConfig.canUseRewardedAd;
+  static bool get canUseRewardedAd =>
+      allowFullScreenAds && StoreAdConfig.canUseRewardedAd;
 
   /// iOS release interstitials only after an iOS interstitial unit is added in AdMob.
   static bool get canLoadInterstitial {
+    if (!allowFullScreenAds) return false;
     if (defaultTargetPlatform == TargetPlatform.iOS &&
         !kDebugMode &&
         StoreAdConfig.useProductionAdUnits) {

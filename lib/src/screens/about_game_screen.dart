@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../assets/game_assets.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ad_banner.dart';
 import '../widgets/help_section.dart';
 
 /// Cultural / regional info (Android `AboutGameScreen` / home "Game History").
@@ -20,6 +21,7 @@ class AboutGameScreen extends StatelessWidget {
         backgroundColor: AppTheme.primary,
         foregroundColor: AppTheme.textOnDark,
       ),
+      bottomNavigationBar: const ScreenAdBar(),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(AppTheme.spacingMedium),

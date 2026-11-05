@@ -1,0 +1,23 @@
+RELEASE NAME (paste in Play Console "Release name" field):
+
+2.0.7
+
+
+RELEASE NOTES (paste in "Release notes" field):
+
+What's new in 2.0.7:
+• Family-safe ads: Android shows G-rated banner ads only (no rewarded or full-screen video ads)
+• Career mode — 20 stages from first steps to classic Puli Meka
+• Stronger AI, redesigned board and HUD
+• More reliable online play
+
+
+POLICY REPLY (paste in Policy status / appeal if asked):
+
+We addressed the Families ad-content issue found on version code 18:
+
+1. AdMob blocking controls: maximum ad content rating set to G, and all sensitive categories blocked.
+2. Version 2.0.7 (versionCode 19) removes rewarded and interstitial video ads on Android. Only G-rated, child-directed, non-personalized banner ads are requested.
+3. We retaken / confirmed the IARC content rating questionnaire to match this family board game.
+
+The app is a traditional board game. Extra hints no longer require a video ad on Android.

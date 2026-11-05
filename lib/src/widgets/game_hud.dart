@@ -2,17 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../assets/game_assets.dart';
 import '../controllers/game_controller.dart';
-import '../models/game_constants.dart';
 import '../models/game_state.dart';
 import '../theme/app_theme.dart';
 
-/// Game status: turn strip + two compact stat tiles (no overflow).
+/// Compact one-line status so the board can fill the screen.
 class GameHud extends StatelessWidget {
   const GameHud({
     required this.ui,
     required this.tigerName,
     required this.goatName,
-    required this.showTutorialPlacementHints,
+    this.showTutorialPlacementHints = false,
     super.key,
   });
 
@@ -21,236 +20,113 @@ class GameHud extends StatelessWidget {
   final String goatName;
   final bool showTutorialPlacementHints;
 
-  /// Approximate HUD block height (winner banner uses the same slot).
-  static const double blockHeight = 168;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _TurnStrip(
-          ui: ui,
-          tigerName: tigerName,
-          goatName: goatName,
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 76,
-          child: Row(
-            children: [
-              Expanded(child: _CaptureTile(captured: ui.capturedGoats)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _PlacementTile(
-                  ui: ui,
-                  showTutorialHints: showTutorialPlacementHints,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TurnStrip extends StatelessWidget {
-  const _TurnStrip({
-    required this.ui,
-    required this.tigerName,
-    required this.goatName,
-  });
-
-  final UiGameState ui;
-  final String tigerName;
-  final String goatName;
+  static const double blockHeight = 48;
 
   @override
   Widget build(BuildContext context) {
     final isTiger = ui.currentTurn == PieceType.tiger;
-    final bg = isTiger ? AppTheme.tigerTurnBg : AppTheme.goatTurnBg;
+    final accent = isTiger ? AppTheme.tigerTurnBg : AppTheme.goatTurnBg;
     final playerName = isTiger ? tigerName : goatName;
-    final role = isTiger ? 'Tiger' : 'Goat';
     final action = ui.isGoatPlacementTurn
-        ? 'Place a goat on the board'
+        ? 'Place a goat'
         : isTiger
-            ? 'Move or jump to capture'
-            : 'Move a goat to an empty node';
+            ? 'Tiger to move'
+            : 'Goat to move';
+    final captureLabel = ui.winByTrapOnly
+        ? (ui.capturedGoats == 0 ? 'Trap' : 'Lost ${ui.capturedGoats}')
+        : '${ui.capturedGoats}/${ui.goatsToCaptureGoal}';
+    final placeLabel = ui.isPlacementPhase
+        ? '${ui.goatsRemainingToPlace} in hand'
+        : 'Moving';
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      constraints: const BoxConstraints(minHeight: 76),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        border: Border.all(color: AppTheme.textOnDark.withOpacity(0.35), width: 1),
-        boxShadow: AppTheme.cardShadow(opacity: 0.14),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          _PieceAvatar(type: ui.currentTurn, size: 44),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  "$role's turn",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTheme.text(
-                    size: 12,
-                    weight: FontWeight.w600,
-                    color: AppTheme.textOnDark.withOpacity(0.9),
-                  ),
+    return SizedBox(
+      height: blockHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppTheme.cardWhite,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          border: Border.all(color: AppTheme.borderSubtle),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 5,
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(AppTheme.radiusSmall - 1),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  playerName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTheme.text(
-                    size: 19,
-                    weight: FontWeight.bold,
-                    color: AppTheme.textOnDark,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  action,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTheme.text(
-                    size: 11,
-                    color: AppTheme.textOnDark.withOpacity(0.82),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            _PieceAvatar(type: ui.currentTurn, size: 32),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    action,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTheme.text(
+                      size: 13,
+                      weight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    playerName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTheme.text(
+                      size: 11,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(child: _HudStat(label: captureLabel)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: _HudStat(
+                label: placeLabel,
+                highlight: ui.isGoatPlacementTurn,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _CaptureTile extends StatelessWidget {
-  const _CaptureTile({required this.captured});
+class _HudStat extends StatelessWidget {
+  const _HudStat({required this.label, this.highlight = false});
 
-  final int captured;
-
-  @override
-  Widget build(BuildContext context) {
-    const goal = GameConstants.goatsToCaptureForTigerWin;
-    final progress = (captured / goal).clamp(0.0, 1.0);
-
-    return Container(
-      height: double.infinity,
-      decoration: AppTheme.panelDecoration(color: AppTheme.cardWhite),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Captures',
-            maxLines: 1,
-            style: AppTheme.text(size: 11, color: AppTheme.textSecondary),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$captured / $goal',
-                maxLines: 1,
-                style: AppTheme.text(size: 16, weight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 4,
-                  backgroundColor: AppTheme.backgroundLighter,
-                  color: AppTheme.tigerAccent,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PlacementTile extends StatelessWidget {
-  const _PlacementTile({
-    required this.ui,
-    required this.showTutorialHints,
-  });
-
-  final UiGameState ui;
-  final bool showTutorialHints;
+  final String label;
+  final bool highlight;
 
   @override
   Widget build(BuildContext context) {
-    final active = ui.isPlacementPhase;
-    final goatTurn = ui.isGoatPlacementTurn;
-    final hint = showTutorialHints && active && goatTurn ? 'Tap a green dot' : null;
-
-    final line1 = active
-        ? '${ui.goatsPlacedFromHand}/${ui.goatsToPlaceTotal} placed'
-        : 'Movement phase';
-    final line2 = active
-        ? '${ui.goatsRemainingToPlace} left in hand'
-        : 'All goats on board';
-
     return Container(
-      height: double.infinity,
-      decoration: AppTheme.panelDecoration(
-        color: active && goatTurn ? AppTheme.goatSurface : AppTheme.cardWhite,
-        borderColor: active && goatTurn
-            ? AppTheme.goatAccent.withOpacity(0.35)
-            : AppTheme.borderSubtle,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: highlight ? AppTheme.goatSurface : AppTheme.backgroundLight,
+        borderRadius: BorderRadius.circular(8),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            active ? 'Placement' : 'Board',
-            maxLines: 1,
-            style: AppTheme.text(size: 11, color: AppTheme.textSecondary),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                line1,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTheme.text(size: 13, weight: FontWeight.w600),
-              ),
-              Text(
-                hint ?? line2,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTheme.text(
-                  size: 11,
-                  color: hint != null ? AppTheme.goatAccent : AppTheme.textTertiary,
-                  weight: hint != null ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        ],
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppTheme.text(
+          size: 11,
+          weight: FontWeight.w700,
+          color: highlight ? AppTheme.goatAccent : AppTheme.textPrimary,
+        ),
       ),
     );
   }
@@ -264,9 +140,8 @@ class _PieceAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final asset = type == PieceType.tiger
-        ? GameAssets.tigerIcon
-        : GameAssets.goatIcon;
+    final asset =
+        type == PieceType.tiger ? GameAssets.tigerIcon : GameAssets.goatIcon;
 
     return Container(
       width: size,
@@ -274,16 +149,16 @@ class _PieceAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white,
-        border: Border.all(color: Colors.white, width: 2),
+        border: Border.all(color: Colors.white, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
-      padding: EdgeInsets.all(size * 0.14),
+      padding: EdgeInsets.all(size * 0.12),
       child: Image.asset(asset, fit: BoxFit.contain),
     );
   }
@@ -307,34 +182,32 @@ class GameWinnerBanner extends StatelessWidget {
     final bg = isGoats ? AppTheme.goatTurnBg : AppTheme.tigerTurnBg;
     final text = isGoats ? '$goatName wins!' : '$tigerName wins!';
 
-    return Container(
+    return SizedBox(
       height: GameHud.blockHeight,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        boxShadow: AppTheme.cardShadow(opacity: 0.16),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.emoji_events, color: AppTheme.textOnDark, size: 26),
-          const SizedBox(width: 10),
-          Flexible(
-            child: Text(
-              text,
-              maxLines: 2,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              style: AppTheme.text(
-                size: 18,
-                weight: FontWeight.bold,
-                color: AppTheme.textOnDark,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.emoji_events, color: AppTheme.textOnDark, size: 20),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.text(
+                  size: 16,
+                  weight: FontWeight.bold,
+                  color: AppTheme.textOnDark,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

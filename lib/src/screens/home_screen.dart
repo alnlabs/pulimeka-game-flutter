@@ -3,27 +3,29 @@ import 'package:flutter/services.dart';
 
 import '../assets/game_assets.dart';
 import '../models/game_route_args.dart';
+import '../models/online_play_args.dart';
+import '../services/campaign_progress_service.dart';
+import '../services/offline_player_prefs.dart';
+import '../services/online_game_service.dart';
+import '../services/online_session_prefs.dart';
 import '../theme/app_theme.dart';
+import '../utils/external_links.dart';
+import '../utils/layout_insets.dart';
 import '../widgets/ad_banner.dart';
 import '../widgets/app_dialog.dart';
 import '../widgets/home_menu_button.dart';
 import '../widgets/player_names_dialog.dart';
 import '../widgets/start_game_dialog.dart';
+import 'about_game_screen.dart';
+import 'about_screen.dart';
 import 'ai_game_screen.dart';
+import 'campaign_map_screen.dart';
 import 'game_screen.dart';
 import 'history_screen.dart';
-import 'about_screen.dart';
-import 'tutorial_screen.dart';
-import '../models/online_play_args.dart';
-import '../services/online_game_service.dart';
-import '../services/offline_player_prefs.dart';
-import '../services/online_session_prefs.dart';
-import '../utils/external_links.dart';
-import '../utils/layout_insets.dart';
+import 'how_to_play_screen.dart';
 import 'join_game_screen.dart';
 import 'online_play_screen.dart';
 import 'privacy_policy_screen.dart';
-import 'about_game_screen.dart';
 import 'profile_screen.dart';
 import 'settings_screen.dart';
 
@@ -37,10 +39,27 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int _careerLevel = 1;
+  int _careerStars = 0;
+
   @override
   void initState() {
     super.initState();
+    _loadCareerSummary();
     WidgetsBinding.instance.addPostFrameCallback((_) => _tryResumeOnlineGame());
+  }
+
+  Future<void> _loadCareerSummary() async {
+    try {
+      final unlocked =
+          await CampaignProgressService.instance.continueLevelId();
+      final stars = await CampaignProgressService.instance.totalStars();
+      if (!mounted) return;
+      setState(() {
+        _careerLevel = unlocked;
+        _careerStars = stars;
+      });
+    } catch (_) {}
   }
 
   Future<void> _tryResumeOnlineGame() async {
@@ -78,22 +97,19 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted || result == null) return;
 
     await OfflinePlayerPrefs.setNames(tiger: result.tiger, goat: result.goat);
-    _openOfflineGameWithNames(result.tiger, result.goat);
-  }
-
-  void _openOfflineGameWithNames(String tiger, String goat) {
+    if (!mounted) return;
     Navigator.pushNamed(
       context,
       GameScreen.routeName,
       arguments: GameRouteArgs(
         mode: 'offline',
-        tigerPlayerName: tiger,
-        goatPlayerName: goat,
+        tigerPlayerName: result.tiger,
+        goatPlayerName: result.goat,
       ),
     );
   }
 
-  Future<void> _showStartDialog() async {
+  Future<void> _showPlayDialog() async {
     await showDialog<void>(
       context: context,
       builder: (context) => StartGameDialog(
@@ -106,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Navigator.pop(context);
           Navigator.pushNamed(context, JoinGameScreen.routeName);
         },
-        onPlayAI: () {
+        onPlayAi: () {
           Navigator.pop(context);
           Navigator.pushNamed(context, AIGameScreen.routeName);
         },
@@ -118,11 +134,38 @@ class _HomeScreenState extends State<HomeScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) => AppDialog(
-        title: 'About',
-        icon: Icons.info_outline,
+        title: 'More',
+        icon: Icons.more_horiz,
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            AppDialogMenuTile(
+              icon: Icons.person_outline,
+              label: 'Profile',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, ProfileScreen.routeName);
+              },
+            ),
+            const SizedBox(height: 8),
+            AppDialogMenuTile(
+              icon: Icons.leaderboard_outlined,
+              label: 'Stats',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, HistoryScreen.routeName);
+              },
+            ),
+            const SizedBox(height: 8),
+            AppDialogMenuTile(
+              icon: Icons.settings_outlined,
+              label: 'Settings',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, SettingsScreen.routeName);
+              },
+            ),
+            const SizedBox(height: 8),
             AppDialogMenuTile(
               icon: Icons.history_edu_outlined,
               label: 'About the game',
@@ -152,7 +195,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
-          AppDialogButton(label: 'Close', onPressed: () => Navigator.pop(context)),
+          AppDialogButton(
+            label: 'Close',
+            onPressed: () => Navigator.pop(context),
+          ),
         ],
       ),
     );
@@ -204,130 +250,103 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         backgroundColor: AppTheme.background,
         body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingMedium),
-              child: Column(
-                children: [
-                  Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spacingMedium,
+            ),
+            child: Column(
+              children: [
+                Expanded(
+                  child: Center(
                     child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          const SizedBox(height: AppTheme.spacingLarge),
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: AppTheme.panelDecoration(
-                              color: AppTheme.cardWhite,
-                              borderColor: AppTheme.borderSubtle,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 420),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(height: AppTheme.spacingLarge),
+                            Image.asset(
+                              GameAssets.playstoreIcon,
+                              width: 96,
+                              height: 96,
+                              fit: BoxFit.contain,
                             ),
-                            child: Column(
+                            const SizedBox(height: 16),
+                            Text(
+                              'Puli Meka',
+                              style: AppTheme.text(
+                                size: 32,
+                                weight: FontWeight.bold,
+                                color: AppTheme.primaryDark,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Tigers vs Goats',
+                              style: AppTheme.text(
+                                size: 15,
+                                weight: FontWeight.w600,
+                                color: AppTheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            HomeMenuButton(
+                              text: 'Play',
+                              icon: Icons.play_arrow_rounded,
+                              onTap: _showPlayDialog,
+                            ),
+                            const SizedBox(height: 10),
+                            HomeMenuButton(
+                              text: 'Career',
+                              icon: Icons.emoji_events_outlined,
+                              style: HomeMenuStyle.secondary,
+                              subtitle: _careerStars > 0
+                                  ? 'Continue level $_careerLevel · $_careerStars★'
+                                  : '20 stages · start at level $_careerLevel',
+                              onTap: () async {
+                                await Navigator.pushNamed(
+                                  context,
+                                  CampaignMapScreen.routeName,
+                                );
+                                await _loadCareerSummary();
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Image.asset(
-                                  GameAssets.playstoreIcon,
-                                  width: AppTheme.logoSize,
-                                  height: AppTheme.logoSize,
-                                  fit: BoxFit.contain,
-                                ),
-                                const SizedBox(height: AppTheme.spacingMedium),
-                                Text(
-                                  'Puli Meka',
-                                  style: AppTheme.text(
-                                    size: 30,
-                                    weight: FontWeight.bold,
-                                    color: AppTheme.primaryDark,
+                                _HomeLink(
+                                  label: 'How to play',
+                                  onTap: () => Navigator.pushNamed(
+                                    context,
+                                    HowToPlayScreen.routeName,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Tigers vs Goats',
-                                  style: AppTheme.text(
-                                    size: 15,
-                                    weight: FontWeight.w600,
-                                    color: AppTheme.primary,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Classic Indian board game',
-                                  style: AppTheme.text(
-                                    size: 13,
-                                    color: AppTheme.textTertiary,
-                                  ),
+                                _HomeDot(),
+                                _HomeLink(
+                                  label: 'More',
+                                  onTap: _showMoreMenu,
                                 ),
                               ],
                             ),
-                          ),
-                          const SizedBox(height: AppTheme.spacingLarge),
-                          HomeMenuButton(
-                            text: 'Start Game',
-                            icon: Icons.play_arrow,
-                            onTap: _showStartDialog,
-                          ),
-                          const SizedBox(height: AppTheme.spacingSmall),
-                          HomeMenuButton(
-                            text: 'How to play',
-                            icon: Icons.menu_book_outlined,
-                            style: HomeMenuStyle.secondary,
-                            onTap: () =>
-                                Navigator.pushNamed(context, TutorialScreen.routeName),
-                          ),
-                          const SizedBox(height: AppTheme.spacingSmall),
-                          HomeMenuButton(
-                            text: 'Profile',
-                            icon: Icons.person_outline,
-                            style: HomeMenuStyle.secondary,
-                            onTap: () =>
-                                Navigator.pushNamed(context, ProfileScreen.routeName),
-                          ),
-                          const SizedBox(height: AppTheme.spacingSmall),
-                          HomeMenuButton(
-                            text: 'Stats',
-                            icon: Icons.leaderboard_outlined,
-                            style: HomeMenuStyle.secondary,
-                            onTap: () =>
-                                Navigator.pushNamed(context, HistoryScreen.routeName),
-                          ),
-                          const SizedBox(height: AppTheme.spacingSmall),
-                          HomeMenuButton(
-                            text: 'Settings',
-                            icon: Icons.settings_outlined,
-                            style: HomeMenuStyle.secondary,
-                            onTap: () =>
-                                Navigator.pushNamed(context, SettingsScreen.routeName),
-                          ),
-                          const SizedBox(height: AppTheme.spacingSmall),
-                          HomeMenuButton(
-                            text: 'About',
-                            icon: Icons.info_outline,
-                            style: HomeMenuStyle.secondary,
-                            onTap: _showMoreMenu,
-                          ),
-                      ],
+                            const SizedBox(height: AppTheme.spacingLarge),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
                 const AdBanner(),
-                SizedBox(height: AppTheme.spacingMedium + bottomChromePadding(context)),
-                Text(
-                  'Tigers vs Goats',
-                  style: AppTheme.text(
-                    size: 12,
-                    weight: FontWeight.w500,
-                    color: AppTheme.textTertiary,
-                  ),
-                ),
-                const SizedBox(height: AppTheme.spacingSmall),
-                Text(
-                  'Designed and developed by',
-                  style: AppTheme.text(size: 10, color: AppTheme.textTertiary),
+                SizedBox(
+                  height: AppTheme.spacingSmall + bottomChromePadding(context),
                 ),
                 GestureDetector(
-                  onTap: () => ExternalLinks.openLinkedIn(),
+                  onTap: () => ExternalLinks.openWebsite(),
                   child: Text(
-                    'Nageshwar Reddy Pandem',
+                    'by ALN Labs',
                     style: AppTheme.text(
                       size: 11,
-                      weight: FontWeight.w600,
-                      color: AppTheme.primary,
+                      color: AppTheme.textTertiary,
                     ),
                   ),
                 ),
@@ -337,6 +356,42 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HomeLink extends StatelessWidget {
+  const _HomeLink({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        foregroundColor: AppTheme.primaryDark,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      ),
+      child: Text(
+        label,
+        style: AppTheme.text(
+          size: 14,
+          weight: FontWeight.w600,
+          color: AppTheme.primaryDark,
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeDot extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '·',
+      style: AppTheme.text(size: 16, color: AppTheme.textTertiary),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/hint_policy.dart';
 import '../models/player_profile.dart';
+import 'ad_config.dart';
 
 enum HintAccess { tutorial, free, batch, needsAd }
 
@@ -145,10 +146,14 @@ class HintService {
     } else if (batch > 0) {
       phaseLabel = 'Hint pack active';
       countSummary = '$batch of ${HintPolicy.hintsPerAdBatch} left · $total used total';
-    } else {
+    } else if (AdConfig.canUseRewardedAd || AdConfig.canLoadInterstitial) {
       phaseLabel = 'Watch ad for hints';
       countSummary =
           'Next ${HintPolicy.hintsPerAdBatch} hints need an ad · $total used total';
+    } else {
+      phaseLabel = 'More hints';
+      countSummary =
+          'Tap hint for ${HintPolicy.hintsPerAdBatch} more · $total used total';
     }
 
     return PlayerProfile(
@@ -175,6 +180,9 @@ class HintService {
     if (p.batchHintsRemaining > 0) {
       return 'Hints: ${p.batchHintsRemaining}/${HintPolicy.hintsPerAdBatch}';
     }
-    return 'Hints: watch ad (${HintPolicy.hintsPerAdBatch})';
+    if (AdConfig.canUseRewardedAd || AdConfig.canLoadInterstitial) {
+      return 'Hints: watch ad (${HintPolicy.hintsPerAdBatch})';
+    }
+    return 'Hints: +${HintPolicy.hintsPerAdBatch}';
   }
 }

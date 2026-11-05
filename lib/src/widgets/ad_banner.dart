@@ -7,9 +7,28 @@ import '../services/ad_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/ad_load_retry.dart';
 
+/// Anchored banner for any [Scaffold.bottomNavigationBar].
+class ScreenAdBar extends StatelessWidget {
+  const ScreenAdBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!AdConfig.shouldShowAds) {
+      return const SizedBox.shrink();
+    }
+    return const Material(
+      color: AppTheme.background,
+      child: AdBanner(safeBottom: true),
+    );
+  }
+}
+
 /// Bottom banner slot matching Android `AdBanner` (adaptive width, retries on fail).
 class AdBanner extends StatefulWidget {
-  const AdBanner({super.key});
+  const AdBanner({this.safeBottom = false, super.key});
+
+  /// Add home-indicator padding only when a real ad is showing.
+  final bool safeBottom;
 
   @override
   State<AdBanner> createState() => _AdBannerState();
@@ -131,79 +150,24 @@ class _AdBannerState extends State<AdBanner> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (!AdConfig.shouldShowAds) {
+    if (!AdConfig.shouldShowAds ||
+        !AdConfig.shouldLoadAds ||
+        !_loaded ||
+        _bannerAd == null) {
       return const SizedBox.shrink();
     }
 
     final height = (_adSize?.height.toDouble() ?? AdConfig.bannerHeight)
         .clamp(AdConfig.bannerHeight, 120.0);
 
-    return SizedBox(
+    final banner = SizedBox(
       width: double.infinity,
       height: height,
-      child: _loaded && _bannerAd != null
-          ? AdWidget(ad: _bannerAd!)
-          : _AdBannerPlaceholder(
-              loading: !_failed && AdConfig.shouldLoadAds,
-              failed: _failed || !AdConfig.shouldLoadAds,
-            ),
+      child: AdWidget(ad: _bannerAd!),
     );
+    if (!widget.safeBottom) {
+      return banner;
+    }
+    return SafeArea(top: false, child: banner);
   }
-}
-
-class _AdBannerPlaceholder extends StatelessWidget {
-  const _AdBannerPlaceholder({
-    required this.loading,
-    required this.failed,
-  });
-
-  final bool loading;
-  final bool failed;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundLighter,
-        border: Border.all(color: AppTheme.textTertiary.withOpacity(0.35)),
-      ),
-      child: Center(
-        child: loading
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.ads_click,
-                    size: 18,
-                    color: AppTheme.textTertiary.withOpacity(0.8),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _placeholderLabel(failed),
-                    style: AppTheme.text(
-                      size: 12,
-                      weight: FontWeight.w500,
-                      color: AppTheme.textTertiary,
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-}
-
-String _placeholderLabel(bool failed) {
-  if (failed) {
-    return 'Ad unavailable';
-  }
-  if (!AdConfig.shouldRequestLiveAds) {
-    return 'Test ad';
-  }
-  return 'Advertisement';
 }

@@ -12,8 +12,10 @@ class AiGameController extends GameController {
     required this.humanRole,
     AiDifficulty difficulty = AiDifficulty.medium,
     AiService? aiService,
+    GameState? engine,
   })  : difficulty = difficulty,
-        _ai = aiService ?? AiService(difficulty: difficulty) {
+        _ai = aiService ?? AiService(difficulty: difficulty),
+        super(engine: engine) {
     if (ui.currentTurn != humanRole && ui.winner == null) {
       Future.microtask(_scheduleAiTurn);
     }
@@ -87,7 +89,10 @@ class AiGameController extends GameController {
       return;
     }
 
-    if (move == null) return;
+    if (move == null) {
+      declareTrapWinIfNeeded();
+      return;
+    }
 
     if (move.isPlacement) {
       applyPlacementDirect(move.placement!);

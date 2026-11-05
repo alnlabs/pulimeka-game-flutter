@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -39,7 +41,7 @@ class InterstitialAdManager {
           ad.fullScreenContentCallback = FullScreenContentCallback(
             onAdDismissedFullScreenContent: (ad) {
               ad.dispose();
-              _ad = null;
+              if (identical(_ad, ad)) _ad = null;
               preload();
             },
             onAdFailedToShowFullScreenContent: (ad, error) {
@@ -47,7 +49,7 @@ class InterstitialAdManager {
                 'Interstitial show failed (${error.code}): ${error.message}',
               );
               ad.dispose();
-              _ad = null;
+              if (identical(_ad, ad)) _ad = null;
               preload();
             },
           );
@@ -69,7 +71,7 @@ class InterstitialAdManager {
     Future<void>.delayed(adRetryDelay(_retryAttempt), preload);
   }
 
-  /// Returns true if an interstitial was shown.
+  /// Shows an interstitial and completes only after it is dismissed.
   Future<bool> show() async {
     final ad = _ad;
     if (ad == null) {
@@ -77,9 +79,33 @@ class InterstitialAdManager {
       return false;
     }
     _ad = null;
-    await ad.show();
-    preload();
-    return true;
+    final done = Completer<bool>();
+
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        preload();
+        if (!done.isCompleted) done.complete(true);
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        debugPrint(
+          'Interstitial show failed (${error.code}): ${error.message}',
+        );
+        ad.dispose();
+        preload();
+        if (!done.isCompleted) done.complete(false);
+      },
+    );
+
+    try {
+      await ad.show();
+    } catch (e, stack) {
+      debugPrint('Interstitial show threw: $e\n$stack');
+      ad.dispose();
+      preload();
+      if (!done.isCompleted) done.complete(false);
+    }
+    return done.future;
   }
 
   bool get isReady => _ad != null;

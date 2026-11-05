@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import '../models/game_constants.dart';
+import '../models/board_layout.dart';
+import '../models/board_spec.dart';
 import '../models/game_state.dart';
 import '../services/move_hint_calculator.dart';
 
@@ -19,6 +20,11 @@ class UiGameState {
     this.selectedNode,
     this.winner,
     this.capturedGoats = 0,
+    this.goatsToCaptureGoal = 12,
+    this.initialGoatsOnBoard = 4,
+    this.goatsToPlaceTotal = 19,
+    this.winByTrapOnly = false,
+    this.board,
     this.invalidMoveMessage,
     this.activeHintMessage,
     this.hintHighlightNodes = const {},
@@ -31,17 +37,22 @@ class UiGameState {
   final String? selectedNode;
   final String? winner;
   final int capturedGoats;
+  final int goatsToCaptureGoal;
+  final int initialGoatsOnBoard;
+  final int goatsToPlaceTotal;
+  final bool winByTrapOnly;
+  final BoardSpec? board;
   final String? invalidMoveMessage;
   final String? activeHintMessage;
   final Set<String> hintHighlightNodes;
   final bool showPlacementDots;
 
+  BoardSpec get boardOrClassic => board ?? BoardLayout.asSpec();
+
   int get goatsOnBoard => pieces.where((p) => p.type == PieceType.goat).length;
 
-  int get goatsToPlaceTotal => GameConstants.totalGoats - GameConstants.initialGoats;
-
   int get goatsPlacedFromHand {
-    final placed = goatsOnBoard + capturedGoats - GameConstants.initialGoats;
+    final placed = goatsOnBoard + capturedGoats - initialGoatsOnBoard;
     return placed.clamp(0, goatsToPlaceTotal);
   }
 
@@ -63,6 +74,11 @@ class UiGameState {
     String? winner,
     bool clearWinner = false,
     int? capturedGoats,
+    int? goatsToCaptureGoal,
+    int? initialGoatsOnBoard,
+    int? goatsToPlaceTotal,
+    bool? winByTrapOnly,
+    BoardSpec? board,
     String? invalidMoveMessage,
     bool clearInvalidMoveMessage = false,
     String? activeHintMessage,
@@ -78,6 +94,11 @@ class UiGameState {
       selectedNode: clearSelectedNode ? null : (selectedNode ?? this.selectedNode),
       winner: clearWinner ? null : (winner ?? this.winner),
       capturedGoats: capturedGoats ?? this.capturedGoats,
+      goatsToCaptureGoal: goatsToCaptureGoal ?? this.goatsToCaptureGoal,
+      initialGoatsOnBoard: initialGoatsOnBoard ?? this.initialGoatsOnBoard,
+      goatsToPlaceTotal: goatsToPlaceTotal ?? this.goatsToPlaceTotal,
+      winByTrapOnly: winByTrapOnly ?? this.winByTrapOnly,
+      board: board ?? this.board,
       invalidMoveMessage: clearInvalidMoveMessage
           ? null
           : (invalidMoveMessage ?? this.invalidMoveMessage),
@@ -93,11 +114,11 @@ class UiGameState {
 }
 
 class GameController extends ChangeNotifier {
-  GameController() {
+  GameController({GameState? engine}) : _engine = engine ?? GameState.initial() {
     _syncFromEngine(selected: null);
   }
 
-  final GameState _engine = GameState.initial();
+  final GameState _engine;
   UiGameState _ui = const UiGameState();
 
   bool tutorialAutoHints = false;
@@ -172,28 +193,62 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// If tigers have no legal moves, record a goat win and refresh the HUD.
+  bool declareTrapWinIfNeeded() {
+    if (_ui.winner != null) return false;
+    _engine.refreshWinner();
+    if (_engine.winner == null) return false;
+    _syncFromEngine(selected: null, clearInvalid: true, clearHint: true);
+    notifyListeners();
+    return true;
+  }
+
   /// Direct engine updates for AI / automation (skips tap validation messages).
   void applyPlacementDirect(String node) {
     if (_ui.winner != null) return;
     if (!_engine.applyPlacement(node)) return;
-    _syncFromEngine(selected: null, clearInvalid: true);
+    _syncFromEngine(selected: null, clearInvalid: true, clearHint: true);
     notifyListeners();
   }
 
   void applyMoveDirect(String from, String to) {
     if (_ui.winner != null) return;
     if (!_engine.applyMove(from, to)) return;
-    _syncFromEngine(selected: null, clearInvalid: true);
+    _syncFromEngine(selected: null, clearInvalid: true, clearHint: true);
     notifyListeners();
   }
 
   void onNodeTapped(String node) {
+    if (declareTrapWinIfNeeded()) return;
     if (_ui.winner != null) return;
 
     final selected = _ui.selectedNode;
 
     // Place goats from hand on goat's turn (tap empty node; selection not required).
     if (_canPlaceGoatAt(node)) {
+      // Only lock when a placement would finish the trap (level 1, or a
+      // later teaching position that can end this turn). Otherwise glowing
+      // gaps are hints — a missed block must still be recoverable.
+      if (tutorialAutoHints &&
+          _engine.winByTrapOnly &&
+          _engine.hasInstantTrapPlacement &&
+          !_engine.teachingPlacementGaps.contains(node)) {
+        final gaps = _engine.teachingPlacementGaps;
+        _syncFromEngine(
+          selected: null,
+          clearInvalid: true,
+          clearHint: true,
+          hintMessage: 'That placement wins — tap the glowing gap.',
+          hintNodes: gaps,
+          forcePlacementDots: true,
+          placementTargets: gaps,
+        );
+        _ui = _ui.copyWith(
+          invalidMoveMessage: 'Tap the glowing gap to trap the tiger.',
+        );
+        notifyListeners();
+        return;
+      }
       _engine.applyPlacement(node);
       _hintUnlockActive = false;
       _syncFromEngine(selected: null, clearInvalid: true, clearHint: true);
@@ -320,13 +375,44 @@ class GameController extends ChangeNotifier {
     if (placementTargets != null) {
       validTargets = placementTargets;
     } else if (inGoatPlacement && showPlacementDots) {
-      validTargets = _engine.placementTargets.toSet();
+      // Prefer live tiger escape gaps (updated after every move), not all empties.
+      final gaps = _engine.winByTrapOnly || tutorialAutoHints
+          ? _engine.teachingPlacementGaps
+          : _engine.placementTargets.toSet();
+      validTargets = gaps.isNotEmpty ? gaps : _engine.placementTargets.toSet();
+    } else if (tutorialAutoHints &&
+        _engine.winByTrapOnly &&
+        _engine.currentTurn == PieceType.goat &&
+        _engine.isMovementPhase &&
+        selected == null) {
+      // Movement phase: glow current escape gaps so the player knows what to fill.
+      validTargets = _engine.tigerEscapeGaps;
     }
 
     final nextHintMessage = hintMessage ??
         (clearHint && hintNodes == null ? null : _ui.activeHintMessage);
-    final nextHintNodes = hintNodes ??
-        (clearHint ? const <String>{} : _ui.hintHighlightNodes);
+
+    Set<String> nextHintNodes;
+    if (hintNodes != null) {
+      nextHintNodes = hintNodes;
+    } else if (clearHint) {
+      nextHintNodes = const {};
+    } else {
+      nextHintNodes = _ui.hintHighlightNodes;
+    }
+
+    // Teaching trap levels: always refresh glowing gaps from the live board
+    // (after tiger moves, old escape squares are wrong).
+    final teachGaps = tutorialAutoHints &&
+        _engine.winByTrapOnly &&
+        _engine.winner == null &&
+        _engine.currentTurn == PieceType.goat &&
+        hintNodes == null;
+    if (teachGaps) {
+      nextHintNodes = _engine.isPlacementPhase && _engine.goatsToPlace > 0
+          ? _engine.teachingPlacementGaps
+          : _engine.tigerEscapeGaps;
+    }
 
     _ui = UiGameState(
       pieces: pieces,
@@ -335,8 +421,18 @@ class GameController extends ChangeNotifier {
       selectedNode: selected,
       winner: _engine.winner,
       capturedGoats: _engine.capturedGoats,
+      goatsToCaptureGoal: _engine.goatsToCaptureForTigerWin,
+      initialGoatsOnBoard: _engine.initialGoatsOnBoard,
+      goatsToPlaceTotal: _engine.totalGoats - _engine.initialGoatsOnBoard,
+      winByTrapOnly: _engine.winByTrapOnly,
+      board: _engine.board,
       invalidMoveMessage: clearInvalid ? null : _ui.invalidMoveMessage,
-      activeHintMessage: nextHintMessage,
+      activeHintMessage: teachGaps && nextHintNodes.isNotEmpty
+          ? (hintMessage ??
+              (_engine.isPlacementPhase
+                  ? 'Place a goat on a glowing gap to block the tiger.'
+                  : 'Fill a glowing gap — move a goat onto it.'))
+          : nextHintMessage,
       hintHighlightNodes: nextHintNodes,
       showPlacementDots: showPlacementDots,
     );

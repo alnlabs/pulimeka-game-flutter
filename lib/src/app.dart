@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'models/game_route_args.dart';
 import 'screens/ai_game_screen.dart';
+import 'screens/campaign_game_screen.dart';
+import 'screens/campaign_map_screen.dart';
 import 'screens/game_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/home_screen.dart';
@@ -36,6 +38,7 @@ class PuliMekaApp extends StatelessWidget {
         AboutScreen.routeName: (context) => const AboutScreen(),
         HistoryScreen.routeName: (context) => const HistoryScreen(),
         AIGameScreen.routeName: (context) => const AIGameScreen(),
+        CampaignMapScreen.routeName: (context) => const CampaignMapScreen(),
         JoinGameScreen.routeName: (context) => const JoinGameScreen(),
         OnlineGameScreen.routeName: (context) => const OnlineGameScreen(),
         OnlinePlayScreen.routeName: (context) => const OnlinePlayScreen(),
@@ -43,6 +46,13 @@ class PuliMekaApp extends StatelessWidget {
         AboutGameScreen.routeName: (context) => const AboutGameScreen(),
       },
       onGenerateRoute: (settings) {
+        if (settings.name == CampaignGameScreen.routeName) {
+          final levelId = settings.arguments is int ? settings.arguments as int : 1;
+          return MaterialPageRoute(
+            builder: (context) => CampaignGameScreen(levelId: levelId),
+            settings: settings,
+          );
+        }
         if (settings.name == GameScreen.routeName) {
           final args = settings.arguments as GameRouteArgs?;
           return MaterialPageRoute(

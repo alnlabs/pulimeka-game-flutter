@@ -9,6 +9,7 @@ class AppDialog extends StatelessWidget {
     this.content,
     this.actions = const [],
     this.icon,
+    this.onClose,
     super.key,
   });
 
@@ -16,6 +17,9 @@ class AppDialog extends StatelessWidget {
   final Widget? content;
   final List<Widget> actions;
   final IconData? icon;
+
+  /// When set, shows an X in the top-right to dismiss (e.g. view board underneath).
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +41,7 @@ class AppDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _DialogHeader(title: title, icon: icon),
+              _DialogHeader(title: title, icon: icon, onClose: onClose),
               if (content != null)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -57,15 +61,16 @@ class AppDialog extends StatelessWidget {
 }
 
 class _DialogHeader extends StatelessWidget {
-  const _DialogHeader({required this.title, this.icon});
+  const _DialogHeader({required this.title, this.icon, this.onClose});
 
   final String title;
   final IconData? icon;
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: EdgeInsets.fromLTRB(20, onClose != null ? 6 : 14, onClose != null ? 4 : 20, onClose != null ? 6 : 14),
       decoration: const BoxDecoration(
         color: AppTheme.primary,
         borderRadius: BorderRadius.vertical(
@@ -88,6 +93,13 @@ class _DialogHeader extends StatelessWidget {
               ),
             ),
           ),
+          if (onClose != null)
+            IconButton(
+              onPressed: onClose,
+              tooltip: 'Close',
+              icon: const Icon(Icons.close_rounded, color: AppTheme.textOnDark),
+              visualDensity: VisualDensity.compact,
+            ),
         ],
       ),
     );

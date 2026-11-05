@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:puli_meka_game_flutter/src/models/ai_difficulty.dart';
+import 'package:puli_meka_game_flutter/src/models/campaign_level.dart';
 import 'package:puli_meka_game_flutter/src/models/game_state.dart';
 import 'package:puli_meka_game_flutter/src/services/ai_service.dart';
 
@@ -91,6 +92,22 @@ void main() {
         }
       }
       expect(easyRandomCount, greaterThan(0));
+    });
+
+    test('tutorial tiger steps instead of taking an open jump', () {
+      final state = CampaignLevels.byId(4).createEngine();
+      state.currentTurn = PieceType.tiger;
+      final jumps = state.getTigerMoves('r2-c0').where((m) => m.isJump);
+      expect(jumps, isNotEmpty);
+
+      for (var seed = 0; seed < 12; seed++) {
+        final move = AiService(
+          difficulty: AiDifficulty.tutorial,
+          random: Random(seed),
+        ).chooseTigerMove(state);
+        expect(move, isNotNull);
+        expect(move!.isJump, isFalse, reason: 'seed $seed');
+      }
     });
   });
 }

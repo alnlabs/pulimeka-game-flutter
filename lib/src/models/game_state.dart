@@ -1,7 +1,36 @@
 import 'board_layout.dart';
+import 'board_spec.dart';
 import 'game_constants.dart';
 
 enum PieceType { tiger, goat }
+
+/// Starting positions and win thresholds for a match.
+class RuleSpec {
+  const RuleSpec({
+    required this.totalGoats,
+    required this.goatsToCapture,
+    required this.tigerStarts,
+    required this.goatStarts,
+    this.firstTurn = PieceType.tiger,
+    this.winByTrapOnly = false,
+    this.allowTigerJumps = true,
+  });
+
+  final int totalGoats;
+  final int goatsToCapture;
+  final List<String> tigerStarts;
+  final List<String> goatStarts;
+  final PieceType firstTurn;
+
+  /// Teaching levels: goats win only by trapping; tiger cannot win by captures.
+  final bool winByTrapOnly;
+
+  /// When false, tigers only step to empty neighbors (no capturing jumps).
+  final bool allowTigerJumps;
+
+  int get goatsToPlace =>
+      (totalGoats - goatStarts.length).clamp(0, totalGoats);
+}
 
 class GameMove {
   final String target;
@@ -12,9 +41,15 @@ class GameMove {
 }
 
 class GameState {
-  static const int totalGoats = GameConstants.totalGoats;
-  static const int initialGoats = GameConstants.initialGoats;
-  static const int goatsToCaptureForTigerWin = GameConstants.goatsToCaptureForTigerWin;
+  final BoardSpec board;
+  final int totalGoats;
+  final int initialGoatsOnBoard;
+  final int goatsToCaptureForTigerWin;
+  final List<String> tigerStartNodes;
+  final List<String> goatStartNodes;
+  final PieceType firstTurn;
+  final bool winByTrapOnly;
+  final bool allowTigerJumps;
 
   final Map<String, PieceType?> pieceState;
   PieceType currentTurn;
@@ -24,6 +59,15 @@ class GameState {
   String? winner;
 
   GameState._({
+    required this.board,
+    required this.totalGoats,
+    required this.initialGoatsOnBoard,
+    required this.goatsToCaptureForTigerWin,
+    required this.tigerStartNodes,
+    required this.goatStartNodes,
+    required this.firstTurn,
+    required this.winByTrapOnly,
+    required this.allowTigerJumps,
     required this.pieceState,
     required this.currentTurn,
     required this.gamePhase,
@@ -35,6 +79,15 @@ class GameState {
   /// Deep copy for AI search.
   GameState copy() {
     return GameState._(
+      board: board,
+      totalGoats: totalGoats,
+      initialGoatsOnBoard: initialGoatsOnBoard,
+      goatsToCaptureForTigerWin: goatsToCaptureForTigerWin,
+      tigerStartNodes: tigerStartNodes,
+      goatStartNodes: goatStartNodes,
+      firstTurn: firstTurn,
+      winByTrapOnly: winByTrapOnly,
+      allowTigerJumps: allowTigerJumps,
       pieceState: Map<String, PieceType?>.from(pieceState),
       currentTurn: currentTurn,
       gamePhase: gamePhase,
@@ -45,22 +98,54 @@ class GameState {
   }
 
   factory GameState.initial() {
+    return GameState.fromRules(
+      board: BoardLayout.asSpec(),
+      rules: RuleSpec(
+        totalGoats: GameConstants.totalGoats,
+        goatsToCapture: GameConstants.goatsToCaptureForTigerWin,
+        tigerStarts: BoardLayout.tigerStartNodes,
+        goatStarts: BoardLayout.initialGoatNodes,
+        firstTurn: PieceType.tiger,
+      ),
+    );
+  }
+
+  factory GameState.fromRules({
+    required BoardSpec board,
+    required RuleSpec rules,
+  }) {
+    for (final node in [...rules.tigerStarts, ...rules.goatStarts]) {
+      if (!board.hasNode(node)) {
+        throw ArgumentError('Start node $node missing on board ${board.id}');
+      }
+    }
+
     final pieces = <String, PieceType?>{};
-    for (final node in BoardLayout.allNodes) {
+    for (final node in board.allNodes) {
       pieces[node] = null;
     }
-    for (final tiger in BoardLayout.tigerStartNodes) {
+    for (final tiger in rules.tigerStarts) {
       pieces[tiger] = PieceType.tiger;
     }
-    for (final goat in BoardLayout.initialGoatNodes) {
+    for (final goat in rules.goatStarts) {
       pieces[goat] = PieceType.goat;
     }
 
+    final toPlace = rules.goatsToPlace;
     return GameState._(
+      board: board,
+      totalGoats: rules.totalGoats,
+      initialGoatsOnBoard: rules.goatStarts.length,
+      goatsToCaptureForTigerWin: rules.goatsToCapture,
+      tigerStartNodes: List.unmodifiable(rules.tigerStarts),
+      goatStartNodes: List.unmodifiable(rules.goatStarts),
+      firstTurn: rules.firstTurn,
+      winByTrapOnly: rules.winByTrapOnly,
+      allowTigerJumps: rules.allowTigerJumps,
       pieceState: pieces,
-      currentTurn: PieceType.tiger,
-      gamePhase: 'placement',
-      goatsToPlace: totalGoats - initialGoats,
+      currentTurn: rules.firstTurn,
+      gamePhase: toPlace > 0 ? 'placement' : 'movement',
+      goatsToPlace: toPlace,
       capturedGoats: 0,
       winner: null,
     );
@@ -75,11 +160,21 @@ class GameState {
     required int capturedGoats,
     String? winner,
   }) {
+    final board = BoardLayout.asSpec();
     final pieces = <String, PieceType?>{};
-    for (final node in BoardLayout.allNodes) {
+    for (final node in board.allNodes) {
       pieces[node] = syncedPieces[node];
     }
     return GameState._(
+      board: board,
+      totalGoats: GameConstants.totalGoats,
+      initialGoatsOnBoard: GameConstants.initialGoats,
+      goatsToCaptureForTigerWin: GameConstants.goatsToCaptureForTigerWin,
+      tigerStartNodes: BoardLayout.tigerStartNodes,
+      goatStartNodes: BoardLayout.initialGoatNodes,
+      firstTurn: PieceType.tiger,
+      winByTrapOnly: false,
+      allowTigerJumps: true,
       pieceState: pieces,
       currentTurn: currentTurn,
       gamePhase: gamePhase,
@@ -99,48 +194,95 @@ class GameState {
         .toList();
   }
 
+  /// Empty nodes a tiger can step/jump into right now (recomputed from board).
+  Set<String> get tigerEscapeGaps {
+    final gaps = <String>{};
+    for (final entry in pieceState.entries) {
+      if (entry.value != PieceType.tiger) continue;
+      for (final move in getTigerMoves(entry.key)) {
+        gaps.add(move.target);
+      }
+    }
+    return gaps;
+  }
+
+  /// True if placing a goat on [node] would leave every tiger with no moves.
+  bool placementWouldTrapTigers(String node) {
+    if (pieceState[node] != null) return false;
+    final previous = pieceState[node];
+    pieceState[node] = PieceType.goat;
+    final trapped = areTigersTrapped();
+    pieceState[node] = previous;
+    return trapped;
+  }
+
+  /// Placements that close at least one current escape, preferring instant traps.
+  Set<String> get teachingPlacementGaps {
+    final escapes = tigerEscapeGaps;
+    if (escapes.isEmpty) return {};
+    final trapping = <String>{};
+    final reducing = <String>{};
+    for (final node in escapes) {
+      if (placementWouldTrapTigers(node)) {
+        trapping.add(node);
+      } else {
+        reducing.add(node);
+      }
+    }
+    return trapping.isNotEmpty ? trapping : reducing;
+  }
+
+  /// True when a goat from hand can finish the trap this turn.
+  bool get hasInstantTrapPlacement {
+    if (!isPlacementPhase || goatsToPlace <= 0) return false;
+    final gaps = teachingPlacementGaps;
+    return gaps.isNotEmpty && placementWouldTrapTigers(gaps.first);
+  }
+
   PieceType? pieceAt(String node) => pieceState[node];
 
   List<GameMove> getTigerMoves(String startNode) {
     if (pieceState[startNode] != PieceType.tiger) {
       return [];
     }
-    final start = BoardLayout.nodeCoord(startNode);
+    final start = board.nodeCoord(startNode);
     if (start == null) {
       return [];
     }
 
     final moves = <GameMove>[];
-    for (final neighborName in BoardLayout.neighbors(startNode)) {
+    for (final neighborName in board.neighbors(startNode)) {
       final neighborPiece = pieceState[neighborName];
       if (neighborPiece == null) {
         moves.add(GameMove(target: neighborName));
       }
     }
 
-    for (final midNodeName in BoardLayout.neighbors(startNode)) {
-      if (pieceState[midNodeName] != PieceType.goat) {
-        continue;
-      }
-      final mid = BoardLayout.nodeCoord(midNodeName);
-      if (mid == null) continue;
-      final startToMidDx = mid.col - start.col;
-      final startToMidDy = mid.row - start.row;
-
-      for (final endNodeName in BoardLayout.neighbors(midNodeName)) {
-        if (endNodeName == startNode) {
+    if (allowTigerJumps) {
+      for (final midNodeName in board.neighbors(startNode)) {
+        if (pieceState[midNodeName] != PieceType.goat) {
           continue;
         }
-        if (pieceState[endNodeName] != null) {
-          continue;
-        }
-        final end = BoardLayout.nodeCoord(endNodeName);
-        if (end == null) continue;
-        final midToEndDx = end.col - mid.col;
-        final midToEndDy = end.row - mid.row;
+        final mid = board.nodeCoord(midNodeName);
+        if (mid == null) continue;
+        final startToMidDx = mid.col - start.col;
+        final startToMidDy = mid.row - start.row;
 
-        if (_isSameDirection(startToMidDx, startToMidDy, midToEndDx, midToEndDy)) {
-          moves.add(GameMove(target: endNodeName, jumped: midNodeName));
+        for (final endNodeName in board.neighbors(midNodeName)) {
+          if (endNodeName == startNode) {
+            continue;
+          }
+          if (pieceState[endNodeName] != null) {
+            continue;
+          }
+          final end = board.nodeCoord(endNodeName);
+          if (end == null) continue;
+          final midToEndDx = end.col - mid.col;
+          final midToEndDy = end.row - mid.row;
+
+          if (_isSameDirection(startToMidDx, startToMidDy, midToEndDx, midToEndDy)) {
+            moves.add(GameMove(target: endNodeName, jumped: midNodeName));
+          }
         }
       }
     }
@@ -152,7 +294,7 @@ class GameState {
       return [];
     }
     final moves = <GameMove>[];
-    for (final neighborName in BoardLayout.neighbors(startNode)) {
+    for (final neighborName in board.neighbors(startNode)) {
       if (pieceState[neighborName] == null) {
         moves.add(GameMove(target: neighborName));
       }
@@ -176,7 +318,6 @@ class GameState {
     if (piece == null) {
       return const {};
     }
-    // Tigers may move during placement; goats move only after all are placed.
     if (piece == PieceType.tiger && currentTurn == PieceType.tiger) {
       return getValidMoves(node).map((move) => move.target).toSet();
     }
@@ -208,7 +349,6 @@ class GameState {
     if (mover == null) return false;
     if (mover == PieceType.tiger && currentTurn != PieceType.tiger) return false;
     if (mover == PieceType.goat && currentTurn != PieceType.goat) return false;
-    // While placing goats from hand, goats may only be placed — not moved.
     if (isPlacementPhase && goatsToPlace > 0 && mover == PieceType.goat) {
       return false;
     }
@@ -233,26 +373,38 @@ class GameState {
   }
 
   bool areTigersTrapped() {
+    var sawTiger = false;
     for (final entry in pieceState.entries) {
-      if (entry.value == PieceType.tiger) {
-        if (getTigerMoves(entry.key).isNotEmpty) {
-          return false;
-        }
+      if (entry.value != PieceType.tiger) continue;
+      sawTiger = true;
+      if (getTigerMoves(entry.key).isNotEmpty) {
+        return false;
       }
     }
-    return true;
+    return sawTiger;
   }
 
   void _advanceTurn() {
     currentTurn = currentTurn == PieceType.tiger ? PieceType.goat : PieceType.tiger;
   }
 
+  void refreshWinner() => _updateWinner();
+
   void _updateWinner() {
-    if (capturedGoats >= goatsToCaptureForTigerWin) {
+    final goatsOnBoard =
+        pieceState.values.where((v) => v == PieceType.goat).length;
+    final herdWipedOut = goatsToPlace <= 0 && goatsOnBoard == 0;
+
+    // Tiger win: capture quota, or every goat has been eaten (no herd left).
+    if (herdWipedOut ||
+        (!winByTrapOnly && capturedGoats >= goatsToCaptureForTigerWin)) {
       winner = 'tigers';
       return;
     }
-    if (isMovementPhase && areTigersTrapped()) {
+    // Goats win as soon as every tiger has no legal step/jump — including
+    // mid-placement. Waiting for movement left the board frozen when the AI
+    // (or a human tiger) had an empty move list.
+    if (areTigersTrapped()) {
       winner = 'goats';
       return;
     }
@@ -260,7 +412,18 @@ class GameState {
   }
 
   void reset() {
-    final initial = GameState.initial();
+    final initial = GameState.fromRules(
+      board: board,
+      rules: RuleSpec(
+        totalGoats: totalGoats,
+        goatsToCapture: goatsToCaptureForTigerWin,
+        tigerStarts: tigerStartNodes,
+        goatStarts: goatStartNodes,
+        firstTurn: firstTurn,
+        winByTrapOnly: winByTrapOnly,
+        allowTigerJumps: allowTigerJumps,
+      ),
+    );
     pieceState
       ..clear()
       ..addAll(initial.pieceState);

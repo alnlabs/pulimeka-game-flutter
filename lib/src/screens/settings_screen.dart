@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/sound_prefs.dart';
 import '../services/sound_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ad_banner.dart';
 import 'about_screen.dart';
 import 'profile_screen.dart';
 import 'how_to_play_screen.dart';
@@ -60,6 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: AppTheme.primary,
         foregroundColor: AppTheme.textOnDark,
       ),
+      bottomNavigationBar: const ScreenAdBar(),
       body: SafeArea(
         child: ListView(
           children: [

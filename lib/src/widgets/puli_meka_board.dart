@@ -1,13 +1,14 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../assets/game_assets.dart';
 import '../controllers/game_controller.dart';
 import '../models/game_state.dart';
-import '../models/board_layout.dart';
 import '../theme/app_theme.dart';
 import 'board_geometry.dart';
 
-/// Canvas board + piece overlays matching native Android `GameScreen`.
+/// Canvas board + piece overlays — warm wooden board look.
 class PuliMekaBoard extends StatelessWidget {
   const PuliMekaBoard({
     required this.ui,
@@ -23,7 +24,7 @@ class PuliMekaBoard extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
-        final geometry = BoardGeometry.fromSize(size);
+        final geometry = BoardGeometry.fromSize(size, board: ui.boardOrClassic);
 
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -32,7 +33,7 @@ class PuliMekaBoard extends StatelessWidget {
             if (node != null) onNodeTap(node);
           },
           child: Stack(
-            clipBehavior: Clip.none,
+            clipBehavior: Clip.hardEdge,
             children: [
               CustomPaint(
                 size: size,
@@ -67,65 +68,126 @@ class _BoardPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()..color = AppTheme.boardFill,
+    final boardRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        size.width * 0.02,
+        size.height * 0.02,
+        size.width * 0.96,
+        size.height * 0.96,
+      ),
+      Radius.circular(size.shortestSide * 0.04),
     );
 
-    final border = size.shortestSide * 0.01;
-    final borderPaint = Paint()
-      ..color = AppTheme.boardBorder
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = border;
-    canvas.drawRect(
-      Rect.fromLTWH(border, border, size.width - 2 * border, size.height - 2 * border),
-      borderPaint,
+    // Soft outer shadow
+    canvas.drawRRect(
+      boardRect.shift(Offset(0, size.shortestSide * 0.008)),
+      Paint()
+        ..color = const Color(0x332F241B)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
     );
 
+    // Wood / parchment fill
+    final fillRect = boardRect.outerRect;
+    final fillPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0xFFFFF8EE),
+          Color(0xFFF3E4D0),
+          Color(0xFFEAD7BC),
+        ],
+        stops: [0.0, 0.55, 1.0],
+      ).createShader(fillRect);
+    canvas.drawRRect(boardRect, fillPaint);
+
+    // Inner rim
+    canvas.drawRRect(
+      boardRect.deflate(size.shortestSide * 0.012),
+      Paint()
+        ..color = const Color(0xFF8D6E63)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.shortestSide * 0.008,
+    );
+    canvas.drawRRect(
+      boardRect.deflate(size.shortestSide * 0.004),
+      Paint()
+        ..color = const Color(0xFF5D4037)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.shortestSide * 0.006,
+    );
+
+    final board = ui.boardOrClassic;
+    final stroke = math.max(1.5, size.shortestSide * 0.009);
+
+    // Lines — warm brown with light undertone
+    final underPaint = Paint()
+      ..color = const Color(0x66FFFFFF)
+      ..strokeWidth = stroke + 1.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
     final linePaint = Paint()
-      ..color = AppTheme.boardLine
-      ..strokeWidth = size.shortestSide * 0.01
-      ..strokeCap = StrokeCap.round;
+      ..color = const Color(0xFF6D4C41)
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
 
     final drawn = <String>{};
-    for (final from in BoardLayout.allNodes) {
-      for (final to in BoardLayout.neighbors(from)) {
+    for (final from in board.allNodes) {
+      for (final to in board.neighbors(from)) {
         final key = from.compareTo(to) < 0 ? '$from|$to' : '$to|$from';
         if (drawn.contains(key)) continue;
         drawn.add(key);
-        canvas.drawLine(geometry.mapNode(from), geometry.mapNode(to), linePaint);
+        final a = geometry.mapNode(from);
+        final b = geometry.mapNode(to);
+        canvas.drawLine(a, b, underPaint);
+        canvas.drawLine(a, b, linePaint);
       }
     }
 
-    final nodeRadius = size.shortestSide * 0.015;
-    final nodePaint = Paint()..color = AppTheme.boardNode;
-    for (final node in BoardLayout.allNodes) {
-      canvas.drawCircle(geometry.mapNode(node), nodeRadius, nodePaint);
+    // Intersection nodes — filled discs with rim
+    final nodeR = math.max(3.5, size.shortestSide * 0.018);
+    for (final node in board.allNodes) {
+      final c = geometry.mapNode(node);
+      canvas.drawCircle(c, nodeR + 1.2, Paint()..color = const Color(0x55FFFFFF));
+      canvas.drawCircle(c, nodeR, Paint()..color = const Color(0xFF8D6E63));
+      canvas.drawCircle(
+        c,
+        nodeR,
+        Paint()
+          ..color = const Color(0xFF4E342E)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2,
+      );
+      canvas.drawCircle(c, nodeR * 0.35, Paint()..color = const Color(0xFFEFEBE9));
     }
 
-    final highlightRadius = size.shortestSide * 0.026;
+    final highlightRadius = math.max(8.0, size.shortestSide * 0.028);
     final placementDots =
         ui.showPlacementDots && ui.isGoatPlacementTurn && ui.selectedNode == null;
     for (final target in validTargets) {
+      final c = geometry.mapNode(target);
       if (placementDots) {
-        canvas.drawCircle(
-          geometry.mapNode(target),
-          highlightRadius * 0.5,
-          Paint()..color = AppTheme.goatMuted,
-        );
+        canvas.drawCircle(c, highlightRadius * 0.55, Paint()..color = AppTheme.goatMuted);
       } else {
         canvas.drawCircle(
-          geometry.mapNode(target),
+          c,
+          highlightRadius,
+          Paint()
+            ..color = AppTheme.validMoveStroke.withOpacity(0.2),
+        );
+        canvas.drawCircle(
+          c,
           highlightRadius,
           Paint()
             ..color = AppTheme.validMoveStroke
             ..style = PaintingStyle.stroke
-            ..strokeWidth = size.shortestSide * 0.006,
+            ..strokeWidth = size.shortestSide * 0.007,
         );
       }
     }
 
-    final hintRadius = size.shortestSide * 0.032;
+    final hintRadius = math.max(10.0, size.shortestSide * 0.034);
     for (final node in ui.hintHighlightNodes) {
       canvas.drawCircle(
         geometry.mapNode(node),
@@ -133,14 +195,14 @@ class _BoardPainter extends CustomPainter {
         Paint()
           ..color = AppTheme.hintNodeStroke
           ..style = PaintingStyle.stroke
-          ..strokeWidth = size.shortestSide * 0.008,
+          ..strokeWidth = size.shortestSide * 0.009,
       );
     }
   }
 
   @override
   bool shouldRepaint(covariant _BoardPainter oldDelegate) {
-    return oldDelegate.ui != ui;
+    return oldDelegate.ui != ui || oldDelegate.geometry.board.id != geometry.board.id;
   }
 }
 
@@ -159,20 +221,18 @@ class _PieceOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final center = geometry.mapNode(piece.node);
     final baseSize = geometry.basePieceSizePx;
-    final pieceSize = piece.type == PieceType.tiger ? baseSize * 0.9 : baseSize;
-    final bgRadius = baseSize * 0.5;
+    final pieceSize = piece.type == PieceType.tiger ? baseSize * 0.92 : baseSize;
+    final bgRadius = baseSize * 0.52;
 
     final isTiger = piece.type == PieceType.tiger;
     final bgColor = isTiger ? AppTheme.pieceTigerBg : AppTheme.pieceGoatBg;
     final borderColor = isTiger ? AppTheme.pieceTigerBorder : AppTheme.pieceGoatBorder;
     final ringColor = isTiger ? AppTheme.pieceTigerRing : AppTheme.pieceGoatRing;
 
-    final asset = isTiger
-        ? GameAssets.tigerIcon
-        : GameAssets.goatIcon;
+    final asset = isTiger ? GameAssets.tigerIcon : GameAssets.goatIcon;
 
     return Stack(
-      clipBehavior: Clip.none,
+      clipBehavior: Clip.hardEdge,
       children: [
         Positioned(
           left: center.dx - bgRadius,
@@ -184,6 +244,13 @@ class _PieceOverlay extends StatelessWidget {
               color: bgColor,
               shape: BoxShape.circle,
               border: Border.all(color: borderColor, width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
             ),
           ),
         ),

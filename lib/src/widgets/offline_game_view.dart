@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../controllers/ai_game_controller.dart';
 import '../controllers/game_controller.dart';
+import '../models/campaign_level.dart';
 import '../models/game_state.dart';
 import '../services/ad_config.dart';
 import '../services/ad_service.dart';
+import '../services/campaign_progress_service.dart';
 import '../services/game_history_recorder.dart';
 import '../services/hint_service.dart';
 import '../services/move_hint_calculator.dart';
@@ -38,6 +40,8 @@ class OfflineGameView extends StatefulWidget {
     this.controller,
     this.aiHumanRole,
     this.aiHumanName,
+    this.campaignLevel,
+    this.onCampaignNext,
     super.key,
   });
 
@@ -48,6 +52,9 @@ class OfflineGameView extends StatefulWidget {
   /// When set, opponent is AI and only the human name can be edited.
   final PieceType? aiHumanRole;
   final String? aiHumanName;
+  final CampaignLevel? campaignLevel;
+  /// Called after a campaign win when user taps Next (parent should open next level).
+  final VoidCallback? onCampaignNext;
 
   @override
   State<OfflineGameView> createState() => _OfflineGameViewState();
@@ -115,10 +122,16 @@ class _OfflineGameViewState extends State<OfflineGameView> {
     _previousTurn = _controller.ui.currentTurn;
     _loadHintSettings();
     AdService.preloadHintAds();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showGoalToWinDialog();
+    });
   }
 
   Future<void> _loadHintSettings() async {
-    final tutorial = await _hintService.shouldShowAutoHints();
+    final level = widget.campaignLevel;
+    final tutorial = level != null && level.usesTeachingHints
+        ? true
+        : await _hintService.shouldShowAutoHints();
     final label = await _hintService.statusLabel();
     if (!mounted) {
       return;
@@ -171,7 +184,7 @@ class _OfflineGameViewState extends State<OfflineGameView> {
       _recordGameIfNeeded();
       if (!_completionAdHandled) {
         _completionAdHandled = true;
-        if (AdConfig.shouldShowAds) {
+        if (AdConfig.shouldShowAds && AdConfig.canLoadInterstitial) {
           setState(() => _showCompletionAdOverlay = true);
         } else {
           _presentWinDialogIfNeeded();
@@ -198,12 +211,11 @@ class _OfflineGameViewState extends State<OfflineGameView> {
     final winner = _controller.ui.winner;
     if (winner == null) return;
 
-    final mode = widget.modeLabel.toLowerCase().contains('ai') ? 'ai' : 'offline';
-    final isAi = mode == 'ai';
     final captured = _controller.ui.capturedGoats;
     final placed = _controller.ui.goatsPlacedFromHand;
 
-    if (isAi) {
+    if (_isAiGame) {
+      final mode = widget.campaignLevel != null ? 'campaign' : 'ai';
       final aiController = widget.controller;
       final humanRole = aiController is AiGameController
           ? aiController.humanRole
@@ -227,7 +239,7 @@ class _OfflineGameViewState extends State<OfflineGameView> {
     await GameHistoryRecorder.instance.recordMatch(
       playerName: _tigerName,
       opponentName: _goatName,
-      mode: mode,
+      mode: 'offline',
       humanWon: winner == 'tigers',
       capturedGoats: captured,
       goatsPlaced: placed,
@@ -235,7 +247,7 @@ class _OfflineGameViewState extends State<OfflineGameView> {
     await GameHistoryRecorder.instance.recordMatch(
       playerName: _goatName,
       opponentName: _tigerName,
-      mode: mode,
+      mode: 'offline',
       humanWon: winner == 'goats',
       capturedGoats: captured,
       goatsPlaced: placed,
@@ -266,6 +278,84 @@ class _OfflineGameViewState extends State<OfflineGameView> {
       _previousSelectedNode = null;
       _previousTurn = _controller.ui.currentTurn;
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showGoalToWinDialog();
+    });
+  }
+
+  String _goalToWinBody() {
+    final level = widget.campaignLevel;
+    final ui = _controller.ui;
+    if (level != null) {
+      final youAre = level.humanIsGoat ? 'Goats' : 'Tigers';
+      final howYouWin = level.humanIsGoat
+          ? (level.rules.winByTrapOnly
+              ? 'You win by trapping the tiger(s) so they cannot move.'
+              : 'You win by trapping the tiger(s) before they capture ${level.rules.goatsToCapture} goats.')
+          : 'You win by capturing ${level.rules.goatsToCapture} goats.';
+      final goatsLeftToLose = level.rules.totalGoats - level.rules.goatsToCapture;
+      final howTheyWin = level.humanIsGoat
+          ? (level.rules.winByTrapOnly
+              ? 'The tiger wins if it eats your whole herd.'
+              : goatsLeftToLose > 0
+                  ? 'The tiger wins when only $goatsLeftToLose goats are left '
+                      '(${level.rules.goatsToCapture} captures).'
+                  : 'The tiger wins by capturing ${level.rules.goatsToCapture} goats.')
+          : 'The goats win by trapping all of your tigers.';
+      final jumpRule = level.rules.allowTigerJumps
+          ? 'Tigers can jump over a goat onto an empty square to capture.'
+          : 'On this level the tiger can only step to an empty neighbor — it cannot jump.';
+      return '${level.goalText}\n\n'
+          'You play as $youAre.\n'
+          '$howYouWin\n'
+          '$howTheyWin\n'
+          '$jumpRule';
+    }
+
+    return 'Tigers win by capturing ${ui.goatsToCaptureGoal} goats '
+        '(or eating the whole herd).\n\n'
+        'Goats win by trapping all tigers so they cannot move.\n\n'
+        'Place goats on empty nodes, then move. Tigers can jump over goats to capture.';
+  }
+
+  Future<void> _showGoalToWinDialog() async {
+    if (!mounted || _controller.ui.winner != null) return;
+    final level = widget.campaignLevel;
+    await showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: true,
+      builder: (ctx) => AppDialog(
+        title: level != null ? 'Level ${level.id} goal' : 'Goal to win',
+        icon: Icons.flag_outlined,
+        onClose: () => Navigator.pop(ctx),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (level != null) ...[
+              Text(
+                level.title,
+                style: AppTheme.text(
+                  size: 16,
+                  weight: FontWeight.w700,
+                  color: AppTheme.primaryDark,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            AppDialogBodyText(_goalToWinBody()),
+          ],
+        ),
+        actions: [
+          AppDialogButton(
+            label: 'Let’s play',
+            primary: true,
+            onPressed: () => Navigator.pop(ctx),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _editPlayerNames() async {
@@ -308,6 +398,7 @@ class _OfflineGameViewState extends State<OfflineGameView> {
         isAiGame: _isAiGame,
         onRestart: _requestRestart,
         onEditNames: _editPlayerNames,
+        onGoal: _showGoalToWinDialog,
         onRules: _showInstructionsDialog,
         onProfile: () => Navigator.pushNamed(
           context,
@@ -320,21 +411,38 @@ class _OfflineGameViewState extends State<OfflineGameView> {
   }
 
   Future<void> _showInstructionsDialog() async {
+    final level = widget.campaignLevel;
+    final captureGoal = level?.rules.goatsToCapture ??
+        _controller.ui.goatsToCaptureGoal;
+    final trapOnly = level?.rules.winByTrapOnly ?? false;
+    final tigerFirst = level == null ||
+        level.rules.firstTurn == PieceType.tiger;
+    final jumps = level?.rules.allowTigerJumps ?? true;
+    final jumpLine = jumps
+        ? 'Tigers jump in a straight line over a goat onto an empty point.'
+        : 'This level: tigers only step to empty neighbors. They cannot jump or capture.';
+    final body = trapOnly
+        ? 'Goats win by trapping all tigers so they cannot move.\n\n'
+            'Tigers can still win by eating the whole herd.\n\n'
+            '1. Place goats on empty nodes next to the tiger.\n'
+            '2. ${tigerFirst ? 'Tigers move first' : 'Goats move first'}, then turns alternate.\n'
+            '3. $jumpLine\n'
+            '4. Select your piece, then tap a highlighted node.'
+        : 'Tigers win by capturing $captureGoal goats '
+            '(or eating the whole herd).\n\n'
+            'Goats win by trapping all tigers.\n\n'
+            '1. Place goats on empty nodes.\n'
+            '2. ${tigerFirst ? 'Tigers move first' : 'Goats move first'}, then turns alternate.\n'
+            '3. $jumpLine\n'
+            '4. Select your piece, then tap a highlighted node.';
     await showDialog<void>(
       context: context,
       useRootNavigator: true,
       builder: (ctx) => AppDialog(
         title: 'How to Play',
         icon: Icons.menu_book_outlined,
-        content: const SingleChildScrollView(
-          child: AppDialogBodyText(
-            'Tigers win by capturing 12 goats.\n\n'
-            'Goats win by trapping all tigers.\n\n'
-            '1. Place goats on empty nodes (green dots).\n'
-            '2. Tigers move first, then turns alternate.\n'
-            '3. Tigers can jump over goats to capture.\n'
-            '4. Select your piece, then tap a highlighted node.',
-          ),
+        content: SingleChildScrollView(
+          child: AppDialogBodyText(body),
         ),
         actions: [
           AppDialogButton(
@@ -408,13 +516,23 @@ class _OfflineGameViewState extends State<OfflineGameView> {
     if (_winDialogPresented || ui.winner == null || !mounted) return;
     _winDialogPresented = true;
 
+    final level = widget.campaignLevel;
+    if (level != null) {
+      _presentCampaignResultDialog(level, ui.winner!);
+      return;
+    }
+
     final winner = ui.winner!;
     final title = winner == 'goats'
         ? '$_displayGoatName Wins!'
         : '$_displayTigerName Wins!';
+    final herdWiped = ui.pieces.where((p) => p.type == PieceType.goat).isEmpty &&
+        ui.goatsRemainingToPlace == 0;
     final body = winner == 'goats'
         ? '$_displayGoatName (Goats) trapped all tigers!'
-        : '$_displayTigerName (Tigers) captured 12 goats!';
+        : herdWiped
+            ? '$_displayTigerName (Tigers) ate the whole herd!'
+            : '$_displayTigerName (Tigers) captured ${ui.goatsToCaptureGoal} goats!';
 
     showDialog<void>(
       context: context,
@@ -465,6 +583,110 @@ class _OfflineGameViewState extends State<OfflineGameView> {
     );
   }
 
+  Future<void> _presentCampaignResultDialog(
+    CampaignLevel level,
+    String winner,
+  ) async {
+    final humanWon = (winner == 'goats' && level.humanIsGoat) ||
+        (winner == 'tigers' && !level.humanIsGoat);
+
+    var stars = 0;
+    if (humanWon) {
+      stars = await CampaignProgressService.instance.recordWin(
+        levelId: level.id,
+        capturedGoats: _controller.ui.capturedGoats,
+        goatsToCapture: level.rules.goatsToCapture,
+        humanIsGoat: level.humanIsGoat,
+        goatsOnBoard: _controller.ui.goatsOnBoard,
+      );
+    }
+    if (!mounted) return;
+
+    final hasNext = humanWon && level.id < CampaignLevels.count;
+
+    showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (ctx) => AppDialog(
+        title: humanWon ? 'Level ${level.id} cleared!' : 'Try again',
+        icon: humanWon ? Icons.emoji_events_outlined : Icons.refresh,
+        onClose: () => Navigator.pop(ctx),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              level.title,
+              style: AppTheme.text(
+                size: 18,
+                weight: FontWeight.bold,
+                color: AppTheme.primaryDark,
+              ),
+            ),
+            const SizedBox(height: 8),
+            AppDialogBodyText(
+              humanWon
+                  ? 'You completed "${level.title}".'
+                  : winner == 'tigers'
+                      ? 'The tiger ate enough goats. ${level.goalText}'
+                      : 'Keep practicing — ${level.goalText}.',
+            ),
+            if (humanWon) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: List.generate(3, (i) {
+                  return Icon(
+                    i < stars ? Icons.star : Icons.star_border,
+                    color: AppTheme.primary,
+                    size: 28,
+                  );
+                }),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                CampaignProgressService.starCriteriaHint(
+                  humanIsGoat: level.humanIsGoat,
+                ),
+                style: AppTheme.text(
+                  size: 12,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          if (hasNext)
+            AppDialogButton(
+              label: 'Next level',
+              primary: true,
+              onPressed: () {
+                Navigator.pop(ctx);
+                widget.onCampaignNext?.call();
+              },
+            ),
+          AppDialogButton(
+            label: 'Retry',
+            primary: !hasNext,
+            onPressed: () {
+              Navigator.pop(ctx);
+              _gameCompletionRecorded = false;
+              _restartMatch();
+            },
+          ),
+          AppDialogButton(
+            label: 'Career',
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -488,6 +710,7 @@ class _OfflineGameViewState extends State<OfflineGameView> {
                   subtitleListenable: _subtitleNotifier,
                   hintLabel: _hintLabelNotifier.value,
                   hintLabelListenable: _hintLabelNotifier,
+                  showHintBar: false,
                   editNamesLabel:
                       _isAiGame ? 'Change your name' : 'Change names',
                   onBack: () {
@@ -499,7 +722,7 @@ class _OfflineGameViewState extends State<OfflineGameView> {
                   },
                   onHint: _onHintPressed,
                   onRules: _showInstructionsDialog,
-                  onRestart: _requestRestart,
+                  onRestart: _restartMatch,
                   onMenu: _openGameMenu,
                   onEditNames: _editPlayerNames,
                   onProfile: () => Navigator.pushNamed(
@@ -517,46 +740,58 @@ class _OfflineGameViewState extends State<OfflineGameView> {
                         builder: (context, tutorialAutoHints, _) {
                           return SafeArea(
                             top: false,
+                            bottom: false,
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                              padding: const EdgeInsets.fromLTRB(6, 4, 6, 0),
                               child: Column(
-                                children: [
-                                  if (ui.winner != null)
-                                    GameWinnerBanner(
-                                      winner: ui.winner!,
-                                      tigerName: _displayTigerName,
-                                      goatName: _displayGoatName,
-                                    )
-                                  else
-                                    GameHud(
-                                      ui: ui,
-                                      tigerName: _displayTigerName,
-                                      goatName: _displayGoatName,
-                                      showTutorialPlacementHints: tutorialAutoHints,
-                                    ),
-                                  GameMessageBar(
-                                    invalidMessage: ui.invalidMoveMessage,
-                                    hintMessage: ui.activeHintMessage,
+                              children: [
+                                if (ui.winner != null)
+                                  GameWinnerBanner(
+                                    winner: ui.winner!,
+                                    tigerName: _displayTigerName,
+                                    goatName: _displayGoatName,
+                                  )
+                                else
+                                  GameHud(
+                                    ui: ui,
+                                    tigerName: _displayTigerName,
+                                    goatName: _displayGoatName,
+                                    showTutorialPlacementHints:
+                                        tutorialAutoHints,
                                   ),
-                                  Expanded(
-                                    child: DecoratedBox(
-                                      decoration: AppTheme.panelDecoration(
-                                        color: AppTheme.boardFill,
-                                        borderColor: AppTheme.borderSubtle,
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(
-                                          AppTheme.radiusMedium,
+                                const SizedBox(height: 4),
+                                Expanded(
+                                  child: Stack(
+                                    children: [
+                                      DecoratedBox(
+                                        decoration: AppTheme.panelDecoration(
+                                          color: AppTheme.boardFill,
+                                          borderColor: AppTheme.borderSubtle,
                                         ),
-                                        child: PuliMekaBoard(
-                                          ui: ui,
-                                          onNodeTap: _controller.onNodeTapped,
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            AppTheme.radiusMedium,
+                                          ),
+                                          child: PuliMekaBoard(
+                                            ui: ui,
+                                            onNodeTap: _controller.onNodeTapped,
+                                          ),
                                         ),
                                       ),
-                                    ),
+                                      Positioned(
+                                        top: 8,
+                                        left: 8,
+                                        right: 8,
+                                        child: GameMessageBar(
+                                          invalidMessage: ui.invalidMoveMessage,
+                                          hintMessage: ui.activeHintMessage,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
+                            ),
                             ),
                           );
                         },
@@ -566,10 +801,10 @@ class _OfflineGameViewState extends State<OfflineGameView> {
                 ),
                 Padding(
                   padding: EdgeInsets.fromLTRB(
-                    12,
-                    AppTheme.spacingSmall,
-                    12,
-                    AppTheme.spacingSmall + bottomChromePadding(context),
+                    0,
+                    4,
+                    0,
+                    bottomChromePadding(context),
                   ),
                   child: const AdBanner(),
                 ),
@@ -619,6 +854,10 @@ class _OfflineGameViewState extends State<OfflineGameView> {
     }
 
     if (access == HintAccess.needsAd) {
+      if (!AdConfig.canUseRewardedAd && !AdConfig.canLoadInterstitial) {
+        await _deliverHintAfterAd();
+        return;
+      }
       final method = await showHintUnlockSheet(
         context,
         showRewardedOption: AdConfig.canUseRewardedAd,
@@ -648,7 +887,7 @@ class _OfflineGameViewState extends State<OfflineGameView> {
     if (!RewardedAdManager.instance.isReady) {
       RewardedAdManager.instance.preload();
       if (mounted) {
-        showAppSnackBar(context, 'Video ad loading — try again in a moment.');
+        setState(() => _showHintAdOverlay = true);
       }
       return;
     }
@@ -694,6 +933,7 @@ class _GameMenuDialog extends StatefulWidget {
     required this.isAiGame,
     required this.onRestart,
     required this.onEditNames,
+    required this.onGoal,
     required this.onRules,
     required this.onProfile,
     required this.onTutorial,
@@ -702,6 +942,7 @@ class _GameMenuDialog extends StatefulWidget {
   final bool isAiGame;
   final VoidCallback onRestart;
   final Future<void> Function() onEditNames;
+  final Future<void> Function() onGoal;
   final Future<void> Function() onRules;
   final VoidCallback onProfile;
   final VoidCallback onTutorial;
@@ -746,6 +987,12 @@ class _GameMenuDialogState extends State<_GameMenuDialog> {
           _GameMenuSoundTile(
             enabled: _soundEnabled,
             onChanged: _setSoundEnabled,
+          ),
+          const SizedBox(height: 8),
+          AppDialogMenuTile(
+            icon: Icons.flag_outlined,
+            label: 'Goal to win',
+            onTap: () => _closeAndAsync(widget.onGoal),
           ),
           const SizedBox(height: 8),
           AppDialogMenuTile(

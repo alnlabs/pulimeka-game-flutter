@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../tutorial/tutorial_snapshots.dart';
+import '../widgets/ad_banner.dart';
 import '../widgets/tutorial_board_panel.dart';
+import 'campaign_map_screen.dart';
 
 /// Short text-first tutorial — one board diagram, then written rules.
 class TutorialScreen extends StatefulWidget {
@@ -44,6 +46,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
           ),
         ),
       ),
+      bottomNavigationBar: const ScreenAdBar(),
       body: Column(
         children: [
           Expanded(
@@ -83,7 +86,11 @@ class _TutorialScreenState extends State<TutorialScreen> {
                           curve: Curves.easeOut,
                         );
                       } else {
-                        Navigator.pop(context);
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          CampaignMapScreen.routeName,
+                          (route) => route.isFirst,
+                        );
                       }
                     },
                     style: FilledButton.styleFrom(

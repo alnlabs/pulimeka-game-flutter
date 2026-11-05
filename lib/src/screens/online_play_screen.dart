@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../controllers/online_game_controller.dart';
 import '../models/online_play_args.dart';
+import '../services/ad_config.dart';
 import '../services/game_history_recorder.dart';
 import '../services/online_game_service.dart';
 import '../services/online_session_prefs.dart';
@@ -19,6 +20,7 @@ import '../widgets/game_hud.dart';
 import '../widgets/game_message_bar.dart';
 import '../widgets/game_top_bar.dart';
 import '../widgets/player_names_dialog.dart';
+import '../widgets/timed_ad_overlay.dart';
 import '../widgets/ui_game_state_mapper.dart';
 import 'home_screen.dart';
 
@@ -39,6 +41,8 @@ class _OnlinePlayScreenState extends State<OnlinePlayScreen> {
   bool _gameStarted = false;
   bool _winRecorded = false;
   bool _watchStarted = false;
+  bool _showCompletionAd = false;
+  bool _completionAdHandled = false;
   String _playerName = 'Player';
 
   @override
@@ -107,6 +111,12 @@ class _OnlinePlayScreenState extends State<OnlinePlayScreen> {
     if (c.gameState.winner != null) {
       _winRecorded = true;
       _recordWin(c.gameState.winner!);
+      if (AdConfig.shouldShowAds &&
+          AdConfig.canLoadInterstitial &&
+          !_completionAdHandled) {
+        _completionAdHandled = true;
+        _showCompletionAd = true;
+      }
       setState(() {});
       return;
     }
@@ -310,7 +320,10 @@ class _OnlinePlayScreenState extends State<OnlinePlayScreen> {
   Widget build(BuildContext context) {
     final args = _args;
     if (args == null) {
-      return const Scaffold(body: Center(child: Text('Invalid session')));
+      return const Scaffold(
+        body: Center(child: Text('Invalid session')),
+        bottomNavigationBar: ScreenAdBar(),
+      );
     }
 
     if (!_gameStarted && (args.waitingForGuest || _room?['status'] == 'waiting')) {
@@ -330,6 +343,7 @@ class _OnlinePlayScreenState extends State<OnlinePlayScreen> {
     if (c == null || c.isLoading) {
       return Scaffold(
         appBar: AppBar(title: const Text('Online game')),
+        bottomNavigationBar: const ScreenAdBar(),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -337,7 +351,27 @@ class _OnlinePlayScreenState extends State<OnlinePlayScreen> {
     if (c.error != null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Online game')),
-        body: Center(child: Text(c.error!)),
+        bottomNavigationBar: const ScreenAdBar(),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Could not load this room. Check your connection and try again.',
+                  textAlign: TextAlign.center,
+                  style: AppTheme.text(size: 15, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: _leave,
+                  child: const Text('Leave room'),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -349,7 +383,9 @@ class _OnlinePlayScreenState extends State<OnlinePlayScreen> {
             ? 'Your turn ($roleLabel)'
             : 'Opponent\'s turn';
 
-    return Scaffold(
+    return Stack(
+      children: [
+        Scaffold(
       backgroundColor: AppTheme.background,
       body: Column(
         children: [
@@ -358,9 +394,9 @@ class _OnlinePlayScreenState extends State<OnlinePlayScreen> {
             modeLabel: 'Online game',
             subtitle: '$_tigerName vs $_goatName',
             hintLabel: turnLabel,
-            showHintBar: true,
+            showHintBar: false,
             showHintActions: false,
-            showRestartInMenu: false,
+            showRestartButton: false,
             editNamesLabel: 'Change your name',
             onBack: _leave,
             onHint: _showOnlineRules,
@@ -377,8 +413,9 @@ class _OnlinePlayScreenState extends State<OnlinePlayScreen> {
                 final ui = uiStateFromGameState(state, selectedNode: c.selectedNode);
                 return SafeArea(
                   top: false,
+                  bottom: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                    padding: const EdgeInsets.fromLTRB(6, 4, 6, 0),
                     child: Column(
                       children: [
                         if (state.winner != null)
@@ -394,18 +431,26 @@ class _OnlinePlayScreenState extends State<OnlinePlayScreen> {
                             goatName: _goatName,
                             showTutorialPlacementHints: false,
                           ),
-                        GameMessageBar(
-                          hintMessage: c.isMyTurn ? null : 'Waiting for opponent…',
-                        ),
+                        const SizedBox(height: 4),
                         Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: GameBoardWidget(
-                              gameState: state,
-                              selectedNode: c.selectedNode,
-                              validTargets: c.validTargets,
-                              onNodeTap: c.onNodeTap,
-                            ),
+                          child: Stack(
+                            children: [
+                              GameBoardWidget(
+                                gameState: state,
+                                selectedNode: c.selectedNode,
+                                validTargets: c.validTargets,
+                                onNodeTap: c.onNodeTap,
+                              ),
+                              Positioned(
+                                top: 8,
+                                left: 8,
+                                right: 8,
+                                child: GameMessageBar(
+                                  hintMessage:
+                                      c.isMyTurn ? null : 'Waiting for opponent…',
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -416,16 +461,25 @@ class _OnlinePlayScreenState extends State<OnlinePlayScreen> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(
-              12,
-              AppTheme.spacingSmall,
-              12,
-              AppTheme.spacingSmall + bottomChromePadding(context),
-            ),
+            padding: EdgeInsets.only(bottom: bottomChromePadding(context)),
             child: const AdBanner(),
           ),
         ],
       ),
+        ),
+        if (_showCompletionAd)
+          Positioned.fill(
+            child: TimedAdOverlay(
+              skipSeconds: AdConfig.completionAdSkipSeconds,
+              title: 'Thanks for playing!',
+              subtitle: 'A short message from our sponsor',
+              onComplete: () {
+                if (!mounted) return;
+                setState(() => _showCompletionAd = false);
+              },
+            ),
+          ),
+      ],
     );
   }
 }
@@ -459,6 +513,7 @@ class _WaitingView extends StatelessWidget {
         title: const Text('Waiting for opponent'),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: onLeave),
       ),
+      bottomNavigationBar: const ScreenAdBar(),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

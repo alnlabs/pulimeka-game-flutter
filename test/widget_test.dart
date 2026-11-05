@@ -13,6 +13,7 @@ void main() {
     await tester.pumpWidget(const PuliMekaApp());
 
     expect(find.text('Puli Meka'), findsOneWidget);
-    expect(find.text('Start Game'), findsOneWidget);
+    expect(find.text('Play'), findsOneWidget);
+    expect(find.text('Career'), findsOneWidget);
   });
 }

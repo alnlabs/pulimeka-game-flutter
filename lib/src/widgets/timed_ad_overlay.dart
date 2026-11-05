@@ -32,6 +32,7 @@ class _TimedAdOverlayState extends State<TimedAdOverlay> {
   late int _countdown;
   bool _showSkip = false;
   bool _dismissed = false;
+  bool _tryingInterstitial = true;
 
   int get _skipDelay =>
       widget.skipSeconds ?? HintPolicy.timedAdSkipSeconds;
@@ -49,7 +50,7 @@ class _TimedAdOverlayState extends State<TimedAdOverlay> {
       return;
     }
 
-    if (AdConfig.shouldLoadAds) {
+    if (AdConfig.shouldLoadAds && AdConfig.canLoadInterstitial) {
       final shown = await InterstitialAdManager.instance.show();
       if (shown && mounted) {
         widget.onComplete();
@@ -60,6 +61,7 @@ class _TimedAdOverlayState extends State<TimedAdOverlay> {
     if (!mounted) {
       return;
     }
+    setState(() => _tryingInterstitial = false);
 
     for (var i = _skipDelay; i >= 1; i--) {
       if (!mounted || _dismissed) {
@@ -87,6 +89,10 @@ class _TimedAdOverlayState extends State<TimedAdOverlay> {
         (AdConfig.shouldRequestLiveAds ? 'Thanks for playing!' : 'Ad preview');
     final subtitle = widget.subtitle ??
         (_showSkip ? 'Tap Skip to continue' : 'Please wait…');
+
+    if (_tryingInterstitial) {
+      return const Material(color: Colors.black87);
+    }
 
     return Material(
       color: Colors.black87,

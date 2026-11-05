@@ -29,6 +29,12 @@ class AiMinimax {
     if (moves.isEmpty) return null;
     if (moves.length == 1) return moves.first;
 
+    // Teaching tiger: stay in the pocket. Random / depth-1 search both flee
+    // to the open board and brick sparse goat levels after one miss.
+    if (difficulty == AiDifficulty.tutorial && aiRole == PieceType.tiger) {
+      return _docileTigerMove(state, moves);
+    }
+
     if (_random.nextDouble() < difficulty.randomMoveChance) {
       return moves[_random.nextInt(moves.length)];
     }
@@ -60,6 +66,35 @@ class AiMinimax {
     }
 
     return bestMove ?? moves.first;
+  }
+
+  /// Prefer a step (not a jump) that leaves the fewest tiger moves.
+  AiMove _docileTigerMove(GameState state, List<AiMove> moves) {
+    final steps = moves.where((m) => !m.isJump).toList();
+    final pool = steps.isNotEmpty ? steps : moves;
+
+    var bestMobility = 1 << 30;
+    final tied = <AiMove>[];
+    for (final move in pool) {
+      final copy = state.copy();
+      if (!AiEvaluator.applyMove(copy, move)) continue;
+      var mobility = 0;
+      for (final node in copy.board.allNodes) {
+        if (copy.pieceAt(node) == PieceType.tiger) {
+          mobility += copy.getTigerMoves(node).length;
+        }
+      }
+      if (mobility < bestMobility) {
+        bestMobility = mobility;
+        tied
+          ..clear()
+          ..add(move);
+      } else if (mobility == bestMobility) {
+        tied.add(move);
+      }
+    }
+    if (tied.isEmpty) return pool.first;
+    return tied[_random.nextInt(tied.length)];
   }
 
   _MinimaxResult _minimax({
@@ -125,7 +160,13 @@ class AiMinimax {
 
   String? _terminalWinner(GameState state) {
     if (state.winner != null) return state.winner;
-    if (state.capturedGoats >= GameState.goatsToCaptureForTigerWin) {
+    final goatsOnBoard =
+        state.pieceState.values.where((v) => v == PieceType.goat).length;
+    if (state.goatsToPlace <= 0 && goatsOnBoard == 0) {
+      return 'tigers';
+    }
+    if (!state.winByTrapOnly &&
+        state.capturedGoats >= state.goatsToCaptureForTigerWin) {
       return 'tigers';
     }
     if (state.areTigersTrapped()) return 'goats';

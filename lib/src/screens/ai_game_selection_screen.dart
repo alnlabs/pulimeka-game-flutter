@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../assets/game_assets.dart';
 import '../services/online_session_prefs.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ad_banner.dart';
 
 class AiGameSelectionScreen extends StatefulWidget {
   const AiGameSelectionScreen({
@@ -51,6 +52,7 @@ class _AiGameSelectionScreenState extends State<AiGameSelectionScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
+      bottomNavigationBar: const ScreenAdBar(),
       body: SafeArea(
         child: Column(
           children: [

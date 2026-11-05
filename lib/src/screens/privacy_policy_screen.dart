@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/external_links.dart';
+import '../widgets/ad_banner.dart';
 import '../widgets/help_section.dart';
 
 class PrivacyPolicyScreen extends StatelessWidget {
@@ -19,6 +20,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
         backgroundColor: AppTheme.primary,
         foregroundColor: AppTheme.textOnDark,
       ),
+      bottomNavigationBar: const ScreenAdBar(),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(AppTheme.spacingMedium),
@@ -56,8 +58,8 @@ class PrivacyPolicyScreen extends StatelessWidget {
               title: 'Ads',
               children: [
                 HelpParagraph(
-                  'Banner ads may appear on some screens. Rewarded or interstitial ads are only shown when you '
-                  'choose to unlock an extra hint.',
+                  'Banner ads may appear on some screens. Android does not show '
+                  'rewarded or full-screen video ads.',
                 ),
               ],
             ),

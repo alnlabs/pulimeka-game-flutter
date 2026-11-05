@@ -55,18 +55,25 @@ class AdService {
           'AdMob units (prod=${StoreAdConfig.useProductionAdUnits}): '
           'banner=${AdConfig.bannerAdUnitId} '
           'interstitial=${AdConfig.interstitialAdUnitId} '
-          'rewarded=${AdConfig.rewardedAdUnitId}',
+          'rewarded=${AdConfig.rewardedAdUnitId} '
+          'fullScreen=${AdConfig.allowFullScreenAds}',
         );
-        InterstitialAdManager.instance.preload();
-        RewardedAdManager.instance.preload();
+        if (AdConfig.canLoadInterstitial) {
+          InterstitialAdManager.instance.preload();
+        }
+        if (AdConfig.canUseRewardedAd) {
+          RewardedAdManager.instance.preload();
+        }
       }
 
       _initCompleter!.complete();
     } catch (e, stack) {
       debugPrint('AdMob initialize failed: $e\n$stack');
-      _initCompleter!.completeError(e, stack);
+      // Ads must never block the game from starting.
+      if (!(_initCompleter?.isCompleted ?? true)) {
+        _initCompleter!.complete();
+      }
       _initCompleter = null;
-      rethrow;
     }
   }
 
@@ -88,7 +95,11 @@ class AdService {
     if (!AdConfig.shouldLoadAds) {
       return;
     }
-    InterstitialAdManager.instance.preload();
-    RewardedAdManager.instance.preload();
+    if (AdConfig.canLoadInterstitial) {
+      InterstitialAdManager.instance.preload();
+    }
+    if (AdConfig.canUseRewardedAd) {
+      RewardedAdManager.instance.preload();
+    }
   }
 }

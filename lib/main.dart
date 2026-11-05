@@ -25,7 +25,11 @@ void main() {
         await _initializeFirebase();
         await HintService.instance.ensureFirstPlayRecorded();
         await SoundService.instance.loadFromPrefs();
-        await AdService.initialize();
+        try {
+          await AdService.initialize();
+        } catch (e, stack) {
+          debugPrint('Ads unavailable at startup: $e\n$stack');
+        }
         runApp(const PuliMekaApp());
       } catch (e, stack) {
         debugPrint('Startup failed: $e\n$stack');

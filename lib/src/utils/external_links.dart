@@ -18,14 +18,16 @@ class ExternalLinks {
 
   static const _youtubeTutorial =
       'https://www.youtube.com/results?search_query=puli+meka+game+tutorial';
-  static const _linkedIn =
-      'https://www.linkedin.com/in/nageshwaruideveloper/';
+  static const websiteUrl = 'https://alnlabs.com';
 
   static Future<void> openPrivacyPolicy() => _open(privacyPolicyUrl);
 
   static Future<void> openYouTubeTutorial() => _open(_youtubeTutorial);
 
-  static Future<void> openLinkedIn() => _open(_linkedIn);
+  static Future<void> openWebsite() => _open(websiteUrl);
+
+  /// Kept for older call sites; opens ALN Labs site.
+  static Future<void> openLinkedIn() => openWebsite();
 
   /// Play Store / App Store listing (Android rate-on-exit flow).
   static Future<void> openAppStoreListing() async {
